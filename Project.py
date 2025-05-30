@@ -44,8 +44,13 @@ class Microphone:
 # Left Click - Place room corners (when in room drawing mode)
 
 # Room dimensions (meters)
+<<<<<<< HEAD
 ROOM_WIDTH = 15.0
 ROOM_HEIGHT = 15.0
+=======
+ROOM_WIDTH = 10.0
+ROOM_HEIGHT = 10.0
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
 # Simulation parameters
 dx = 0.1
@@ -76,9 +81,15 @@ walls = np.zeros((nx, ny), dtype=int)  # 0 = no wall, 1 = reflective, 2 = absorp
 # Pygame initialization
 pygame.init()
 screen_size = 800
+<<<<<<< HEAD
 bottom_panel_height = 100  # Height for bottom control panel
 screen = pygame.display.set_mode((screen_size, screen_size + bottom_panel_height))
 pygame.display.set_caption('Sound Wave Propagation')
+=======
+bar_height = 60  # Increased height for brush selection
+screen = pygame.display.set_mode((screen_size, screen_size + bar_height))
+pygame.display.set_caption('Sound Wave Propagation')  # Fixed method name
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 clock = pygame.time.Clock()
 
 # Colors
@@ -97,8 +108,13 @@ SOURCE_COLORS = [
 ]
 
 MEASUREMENT_COLOR = (255, 0, 255)
+<<<<<<< HEAD
 GRID_COLOR = (40, 40, 40)  # Darker gray for better contrast
 INTENSITY_LINE_COLOR = (220, 220, 220)  # Lighter gray for text and lines
+=======
+GRID_COLOR = (200, 200, 200)
+INTENSITY_LINE_COLOR = (100, 100, 100)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
 # Scaling factor
 scale_x = screen_size / nx
@@ -125,6 +141,7 @@ use_rainbow_colormap = False
 FREQ_STEP = 10.0  # Hz per keypress
 AMP_STEP = 0.1    # Amplitude change per keypress
 
+<<<<<<< HEAD
 # Add these constants after the other room/grid parameters
 TEST_BOX_SIZE = 20  # Size of test boxes in grid units
 TEST_BOX_SPACING = 10  # Space between boxes
@@ -133,6 +150,8 @@ FEET_TO_METERS = 0.3048  # Conversion factor
 HEIGHT_STEP = 0.3  # Height change in meters per keypress
 DEFAULT_ROOM_HEIGHT = 3.0 / FEET_TO_METERS  # Default height in feet (3 meters)
 
+=======
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 # Wall absorption coefficients
 wall_coefficients = {
     WallType.NONE: 0.0,        # No effect on wave
@@ -141,9 +160,20 @@ wall_coefficients = {
     WallType.PARTIAL: 0.5       # Partially absorbs the wave
 }
 
+<<<<<<< HEAD
 # Add acoustic materials
 #These lines define acoustic materials for the walls, ceiling, and floor of the room using the 
 # pyroomacoustics library. Each material is characterized by energy absorption and scattering.
+=======
+# Add these constants after the other room/grid parameters
+TEST_BOX_SIZE = 20  # Size of test boxes in grid units
+TEST_BOX_SPACING = 10  # Space between boxes
+
+FEET_TO_METERS = 0.3048  # Conversion factor
+DEFAULT_ROOM_HEIGHT = 10.0  # Default height in feet
+
+# Add acoustic materials
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 wall_material = pra.Material(energy_absorption=0.5, scattering=0.25)
 ceiling_material = pra.Material(energy_absorption=0.5, scattering=0.25)
 floor_material = pra.Material(energy_absorption=0.05, scattering=0.25)
@@ -163,6 +193,33 @@ def calculate_decay_rate(rt60):
     # Therefore: decay_rate = 0.001^(dt/rt60)
     return np.power(0.001, dt/rt60)
 
+<<<<<<< HEAD
+=======
+def create_test_boxes():
+    global walls
+    # Clear existing walls
+    walls.fill(WallType.NONE)
+    
+    # Calculate positions for two boxes
+    start_x = nx // 4
+    start_y = ny // 4
+    
+    # Create reflective box (left)
+    for x in range(start_x, start_x + TEST_BOX_SIZE):
+        for y in range(start_y, start_y + TEST_BOX_SIZE):
+            if (x == start_x or x == start_x + TEST_BOX_SIZE - 1 or 
+                y == start_y or y == start_y + TEST_BOX_SIZE - 1):
+                walls[x, y] = WallType.REFLECTIVE
+    
+    # Create absorptive box (right)
+    start_x += TEST_BOX_SIZE + TEST_BOX_SPACING
+    for x in range(start_x, start_x + TEST_BOX_SIZE):
+        for y in range(start_y, start_y + TEST_BOX_SIZE):
+            if (x == start_x or x == start_x + TEST_BOX_SIZE - 1 or 
+                y == start_y or y == start_y + TEST_BOX_SIZE - 1):
+                walls[x, y] = WallType.ABSORPTIVE
+
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 def update_wave():
     global wave, wave_prev
     wave_next = np.copy(wave)
@@ -170,6 +227,7 @@ def update_wave():
     # Calculate current decay rate based on RT60
     current_decay = calculate_decay_rate(current_rt60)
 
+<<<<<<< HEAD
     # Iterates through each sound source, and only generates noise is source is active.
     for source in sources:
         if source.active:  # Check individual source activation
@@ -184,10 +242,20 @@ def update_wave():
         for y in range(1, ny - 1):
             # Checks the wall type at the current position
             # and applies the appropriate reflection/absorption coefficient
+=======
+    for source in sources:
+        if source.active:  # Check individual source activation
+            t = pygame.time.get_ticks() / 1000.0
+            wave[source.x, source.y] += source.amplitude * np.sin(2 * np.pi * source.frequency * t)
+            
+    for x in range(1, nx - 1):
+        for y in range(1, ny - 1):
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             wall_type = walls[x, y]
             coefficient = wall_coefficients[wall_type]
             
             if wall_type == WallType.NONE:
+<<<<<<< HEAD
                 # Standard wave equation for propagation though 2D free space
                 # It is a discretized 2D wave equation, 
                 # Handles time evolution of the wave
@@ -195,6 +263,11 @@ def update_wave():
                                 # c is speed of sound, dt is time step, dx is spatial step
                                 (c * dt / dx) ** 2 *
                                 # Gets the horizontal and vertical neighbors
+=======
+                # Standard wave equation for propagation
+                wave_next[x, y] = (2 * wave[x, y] - wave_prev[x, y] +
+                                (c * dt / dx) ** 2 *
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
                                 (wave[x + 1, y] + wave[x - 1, y] +
                                  wave[x, y + 1] + wave[x, y - 1] - 
                                  4 * wave[x, y]))
@@ -322,6 +395,7 @@ def calculate_acoustics():
         print(f"Adding source at position (meters): {source_pos}")
         pra_room.add_source(source_pos)
     
+<<<<<<< HEAD
     # Create a microphone array from all microphone positions
     mic_positions = np.array([
         convert_to_meters([
@@ -334,6 +408,16 @@ def calculate_acoustics():
     # Add microphone array to the room
     pra_room.add_microphone_array(mic_positions)
     print(f"Added {len(microphones)} microphones to the room simulation")
+=======
+    for mic in microphones:
+        mic_pos = convert_to_meters([
+            mic.x * ROOM_WIDTH/nx,    # Convert grid x to meters
+            mic.y * ROOM_HEIGHT/ny,   # Convert grid y to meters
+            height_meters/2           # Place at mid-height
+        ])
+        print(f"Adding microphone at position (meters): {mic_pos}")
+        pra_room.add_microphone(mic_pos)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
     # Setup ray tracing
     pra_room.set_ray_tracing(receiver_radius=0.1, n_rays=10000, energy_thres=1e-7)
@@ -341,6 +425,7 @@ def calculate_acoustics():
     # Compute image sources
     pra_room.image_source_model()
     
+<<<<<<< HEAD
     # Close any existing figures first
     plt.close('all')
     
@@ -349,6 +434,13 @@ def calculate_acoustics():
     plt.clf()  # Clear the figure
     pra_room.plot_rir()  # Plot the room impulse response
     plt.gcf().set_size_inches(20, 10)  # Set figure size after plotting
+=======
+    # Create separate figures for RIR and frequency response
+    plt.figure('Room Impulse Response')
+    pra_room.plot_rir()
+    rir_fig = plt.gcf()
+    rir_fig.set_size_inches(20, 10)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     
     # Calculate RT60
     t60 = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, plot=False)
@@ -368,18 +460,30 @@ def calculate_acoustics():
     rir = np.pad(rir, (step_size, len(rir) % chunk_size))
     
     avg_freq_response = np.zeros(chunk_size, dtype=np.complex128)
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     for i, start_idx in enumerate(range(0, len(rir) - chunk_size, step_size)):
         end_idx = start_idx + chunk_size
         chunk = rir[start_idx:end_idx]
         chunk *= hamming(chunk_size)
         freq_response_chunk = np.fft.fft(chunk)
         avg_freq_response += freq_response_chunk
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     freq_axis = np.fft.fftfreq(len(avg_freq_response), d=1/pra_room.fs)
     valid_freqs = np.logical_and(min_freq < freq_axis, freq_axis < max_freq)
     freq_axis = freq_axis[valid_freqs]
     freq_response = avg_freq_response[valid_freqs]
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     freq_response = 20 * np.log10(np.abs(freq_response))
     
     print('Frequency Analysis:')
@@ -389,6 +493,7 @@ def calculate_acoustics():
     print('Max:', freq_response.max())
     print('Delta:', freq_response.max() - freq_response.min())
     
+<<<<<<< HEAD
     # Calculate additional acoustic parameters
     edt = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, 
                                       decay_db=10, plot=False) * 6
@@ -566,6 +671,17 @@ def visualize_room_3d():
     # Enable grid
     ax.grid(True)
     
+=======
+    # Create frequency response plot in a separate window
+    plt.figure('Frequency Response')
+    plt.plot(freq_axis, freq_response)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+    plt.title('Frequency Response of the Room')
+    plt.grid(True)
+    
+    # Show plots in a non-blocking way
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     plt.show(block=False)
 
 def draw():
@@ -582,19 +698,31 @@ def draw():
         for y in range(ny):
             if walls[x, y] != WallType.NONE:
                 pygame.draw.rect(screen, WALL_COLORS[walls[x, y]], 
+<<<<<<< HEAD
                                (x * scale_x, y * scale_y, scale_x, scale_y))
+=======
+                               (x * scale_x, y * scale_y + bar_height, scale_x, scale_y))
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             else:
                 intensity = int((wave[x, y] + 1) * 127.5)
                 intensity = max(0, min(255, intensity))
                 pygame.draw.rect(screen, (intensity, 0, 0), 
+<<<<<<< HEAD
                                (x * scale_x, y * scale_y, scale_x, scale_y))
+=======
+                               (x * scale_x, y * scale_y + bar_height, scale_x, scale_y))
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
     # Draw room corners and lines
     if len(room.corners) > 0:
         scaled_points = []
         for x, y in room.corners:
             screen_x = int(x * scale_x)
+<<<<<<< HEAD
             screen_y = int(y * scale_y)
+=======
+            screen_y = int(y * scale_y + bar_height)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             scaled_points.append((screen_x, screen_y))
         
         # Draw lines between corners
@@ -612,17 +740,41 @@ def draw():
     for i, source in enumerate(sources):
         border_color = (255, 255, 255) if i == selected_source_index else (100, 100, 100)
         pygame.draw.rect(screen, source.color, 
+<<<<<<< HEAD
                         (source.x * scale_x, source.y * scale_y, scale_x, scale_y))
         pygame.draw.rect(screen, border_color,
                         (source.x * scale_x, source.y * scale_y, scale_x, scale_y), 1)
+=======
+                        (source.x * scale_x, source.y * scale_y + bar_height, scale_x, scale_y))
+        pygame.draw.rect(screen, border_color,
+                        (source.x * scale_x, source.y * scale_y + bar_height, scale_x, scale_y), 1)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
     # Draw microphones (after sources, before UI)
     for mic in microphones:
         pygame.draw.rect(screen, mic.color, 
+<<<<<<< HEAD
                         (mic.x * scale_x, mic.y * scale_y, scale_x, scale_y))
 
     # Draw current settings - only if there are sources
     small_font = pygame.font.Font(None, 24)
+=======
+                        (mic.x * scale_x, mic.y * scale_y + bar_height, scale_x, scale_y))
+
+    # Draw UI elements
+    pygame.draw.rect(screen, GRID_COLOR, (0, 0, screen_size, bar_height))
+
+    # Draw mode indicators and controls (simplified)
+    small_font = pygame.font.Font(None, 24)
+    controls_text = "F:Single Sound  SPACE:All Sources  S:Add Source  M:Room Mode"
+    arrow_controls = "↑↓:Frequency  ←→:Amplitude  Enter:Complete Room  Esc:Clear Room"
+    text_surface = small_font.render(controls_text, True, INTENSITY_LINE_COLOR)
+    arrow_surface = small_font.render(arrow_controls, True, INTENSITY_LINE_COLOR)
+    screen.blit(text_surface, (200, 15))
+    screen.blit(arrow_surface, (200, 35))
+
+    # Draw current settings - only if there are sources
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     if sources:
         source = sources[selected_source_index]
         freq_text = f"Freq: {source.frequency:.1f} Hz"
@@ -636,8 +788,11 @@ def draw():
         mode_text += "Room Drawing"
     elif mic_mode:
         mode_text += "Microphone"
+<<<<<<< HEAD
     elif height_adjustment_mode:
         mode_text += "Height Adjustment"
+=======
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
     else:
         mode_text += "None"
     
@@ -649,6 +804,7 @@ def draw():
     screen.blit(amp_surface, (500, 35))
     screen.blit(mode_surface, (650, 10))
 
+<<<<<<< HEAD
     # Draw bottom control panel background
     bottom_panel_rect = pygame.Rect(0, screen_size, screen_size, bottom_panel_height)
     pygame.draw.rect(screen, GRID_COLOR, bottom_panel_rect)
@@ -705,6 +861,17 @@ def draw():
     status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)
     status_rect = status_surface.get_rect(center=(screen_size//2, status_y + 10))
     screen.blit(status_surface, status_rect)
+=======
+    # Add height input field at the bottom
+    height_text = f"Room Height (ft): {height_input_text}" if height_input_active else f"Room Height (ft): {room_height}"
+    height_surface = small_font.render(height_text, True, INTENSITY_LINE_COLOR)
+    screen.blit(height_surface, (10, screen_size + 30))  # Position below the simulation area
+
+    # Add calculation instruction
+    calc_text = "Press C to calculate acoustics"
+    calc_surface = small_font.render(calc_text, True, INTENSITY_LINE_COLOR)
+    screen.blit(calc_surface, (screen_size - 200, screen_size + 30))
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
     pygame.display.flip()
 
@@ -736,10 +903,17 @@ def reset_simulation():
 def place_sound_source():
     global sources, selected_source_index
     mouse_x, mouse_y = pygame.mouse.get_pos()
+<<<<<<< HEAD
     if mouse_y >= screen_size:  # Don't place sources in the bottom panel
         return
     grid_x = int(mouse_x // scale_x)
     grid_y = int(mouse_y // scale_y)
+=======
+    if mouse_y < bar_height:
+        return
+    grid_x = int(mouse_x // scale_x)
+    grid_y = int((mouse_y - bar_height) // scale_y)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 
     if 0 <= grid_x < nx and 0 <= grid_y < ny and walls[grid_x, grid_y] == WallType.NONE:
         # Create new source with cycling colors
@@ -755,8 +929,11 @@ def place_sound_source():
 
 # Main loop
 running = True
+<<<<<<< HEAD
 height_adjustment_mode = False  # Track if we're adjusting height
 
+=======
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -767,6 +944,7 @@ while running:
             elif event.key == pygame.K_SPACE:
                 for source in sources:
                     source.active = True
+<<<<<<< HEAD
             elif event.key == pygame.K_h:
                 height_adjustment_mode = True
             elif event.key == pygame.K_UP:
@@ -783,6 +961,12 @@ while running:
                     print(f"Room height: {room_height * FEET_TO_METERS:.1f} meters")
                 else:
                     sources[selected_source_index].frequency = max(20.0, sources[selected_source_index].frequency - FREQ_STEP)
+=======
+            elif event.key == pygame.K_UP:
+                sources[selected_source_index].frequency = min(2000.0, sources[selected_source_index].frequency + FREQ_STEP)
+            elif event.key == pygame.K_DOWN:
+                sources[selected_source_index].frequency = max(20.0, sources[selected_source_index].frequency - FREQ_STEP)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             elif event.key == pygame.K_RIGHT:
                 sources[selected_source_index].amplitude = min(2.0, sources[selected_source_index].amplitude + AMP_STEP)
             elif event.key == pygame.K_LEFT:
@@ -836,10 +1020,13 @@ while running:
                     calculate_acoustics()
                 else:
                     print("Need a complete room, at least one microphone, and one source to calculate acoustics")
+<<<<<<< HEAD
             elif event.key == pygame.K_v:
                 visualize_room_layout()
             elif event.key == pygame.K_3:  # Press '3' for 3D view
                 visualize_room_3d()
+=======
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             elif height_input_active:
                 if event.key == pygame.K_RETURN:
                     try:
@@ -857,17 +1044,26 @@ while running:
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_f:
                 sources[selected_source_index].active = False
+<<<<<<< HEAD
             elif event.key == pygame.K_h:
                 height_adjustment_mode = False
+=======
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
             elif event.key == pygame.K_SPACE:
                 for source in sources:
                     source.active = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
+<<<<<<< HEAD
                 if mouse_y < screen_size:  # Only handle clicks in the main area
                     grid_x = int(mouse_x // scale_x)
                     grid_y = int(mouse_y // scale_y)
+=======
+                if mouse_y >= bar_height:
+                    grid_x = int(mouse_x // scale_x)
+                    grid_y = int((mouse_y - bar_height) // scale_y)
+>>>>>>> 03cd12879a6de7f74b97c478919f03b0f3719860
                     if 0 <= grid_x < nx and 0 <= grid_y < ny:
                         if room_drawing_mode:
                             room.add_corner(grid_x, grid_y)
