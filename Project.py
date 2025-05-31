@@ -31,6 +31,99 @@ class Microphone:
     y: int
     color: tuple = (255, 192, 203)  # Pink color for microphone
 
+# Simple dropdown menu class for material selection
+class DropdownMenu:
+    def __init__(self, x, y, width, height, options, label="Dropdown"):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.options = options  # List of (name, value) tuples
+        self.expanded = False
+        self.selected_index = 0  # Default to first option
+        self.label = label
+        self.option_height = 30  # Height of each dropdown option
+        self.font = pygame.font.Font(None, 24)
+        self.active = False  # To track if this dropdown is selected
+
+    def draw(self, screen):
+        # Draw the main dropdown button
+        if self.active:
+            button_color = (180, 180, 220)  # Light blue when active
+        else:
+            button_color = (80, 80, 100)  # Darker when inactive
+
+        pygame.draw.rect(screen, button_color, self.rect)
+        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # White border
+        
+        # Draw the label and selected option
+        label_text = self.font.render(f"{self.label}: {self.options[self.selected_index][0]}", True, (255, 255, 255))
+        screen.blit(label_text, (self.rect.x + 10, self.rect.y + (self.rect.height - label_text.get_height()) // 2))
+        
+        # Draw dropdown arrow
+        arrow_points = [
+            (self.rect.right - 20, self.rect.centery - 5),
+            (self.rect.right - 10, self.rect.centery + 5),
+            (self.rect.right - 30, self.rect.centery + 5)
+        ]
+        pygame.draw.polygon(screen, (255, 255, 255), arrow_points)
+        
+        # If expanded, draw options list
+        if self.expanded:
+            for i, (option_name, _) in enumerate(self.options):
+                option_rect = pygame.Rect(
+                    self.rect.x, 
+                    self.rect.y + self.rect.height + i * self.option_height,
+                    self.rect.width, 
+                    self.option_height
+                )
+                
+                # Highlight selected option
+                if i == self.selected_index:
+                    pygame.draw.rect(screen, (100, 100, 160), option_rect)
+                else:
+                    pygame.draw.rect(screen, (60, 60, 80), option_rect)
+                    
+                pygame.draw.rect(screen, (255, 255, 255), option_rect, 1)  # White border
+                
+                # Draw option text
+                option_text = self.font.render(option_name, True, (255, 255, 255))
+                screen.blit(option_text, (option_rect.x + 10, option_rect.y + (option_rect.height - option_text.get_height()) // 2))
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Check if the main dropdown button was clicked
+            if self.rect.collidepoint(event.pos):
+                self.expanded = not self.expanded
+                return True
+            
+            # If expanded, check if an option was clicked
+            if self.expanded:
+                for i, _ in enumerate(self.options):
+                    option_rect = pygame.Rect(
+                        self.rect.x, 
+                        self.rect.y + self.rect.height + i * self.option_height,
+                        self.rect.width, 
+                        self.option_height
+                    )
+                    
+                    if option_rect.collidepoint(event.pos):
+                        self.selected_index = i
+                        self.expanded = False
+                        return True
+                        
+            # Click elsewhere closes the dropdown
+            if self.expanded:
+                self.expanded = False
+                return True
+        
+        return False
+    
+    def get_selected_value(self):
+        """Return the selected material object"""
+        return self.options[self.selected_index][1]
+
+    def set_active(self, active):
+        """Set this dropdown as active (or not)"""
+        self.active = active
+
 # Keybinds:
 # F - Activate sound source
 # Up/Down Arrow - Adjust frequency (Hz)
@@ -76,7 +169,7 @@ walls = np.zeros((nx, ny), dtype=int)  # 0 = no wall, 1 = reflective, 2 = absorp
 # Pygame initialization
 pygame.init()
 screen_size = 800
-bottom_panel_height = 100  # Height for bottom control panel
+bottom_panel_height = 130  # Increased height for bottom control panel with dropdowns
 screen = pygame.display.set_mode((screen_size, screen_size + bottom_panel_height))
 pygame.display.set_caption('Sound Wave Propagation')
 clock = pygame.time.Clock()
@@ -121,8 +214,11 @@ show_grid = False
 show_intensity_lines = False
 use_rainbow_colormap = False
 
-# Frequency and amplitude step sizes
-FREQ_STEP = 10.0  # Hz per keypress
+# Available frequencies (Hz)
+AVAILABLE_FREQUENCIES = [125, 250, 500, 1000, 2000, 4000, 8000]  # Standard acoustic frequencies
+DEFAULT_FREQUENCY_INDEX = 2  # Start with 500 Hz (index 2)
+
+# Amplitude step size
 AMP_STEP = 0.1    # Amplitude change per keypress
 
 # Add these constants after the other room/grid parameters
@@ -141,12 +237,53 @@ wall_coefficients = {
     WallType.PARTIAL: 0.5       # Partially absorbs the wave
 }
 
+#List of all materials
+# total_reflection = pra.Material(energy_absorption=0, scattering=0.25)
+# total_absorption = pra.Material(energy_absorption=1, scattering=0.25)
+unpainted_concrete = pra.Material('unpainted_concrete')
+wooden_lining = pra.Material('wooden_lining')
+brick_wall_rough = pra.Material('brick_wall_rough')
+ceramic_tiles = pra.Material('ceramic_tiles')
+limestone_wall = pra.Material('limestone_wall')
+glass_3mm = pra.Material('glass_3mm')
+
+# Define material options for dropdowns
+material_options = [
+    # ("Total Reflection", total_reflection),
+    # ("Total Absorption", total_absorption),
+    ("Unpainted Concrete", unpainted_concrete),
+    ("Wooden Lining", wooden_lining),
+    ("Brick Wall", brick_wall_rough),
+    ("Ceramic Tiles", ceramic_tiles),
+    ("Limestone Wall", limestone_wall),
+    ("Glass (3mm)", glass_3mm)
+]
+
+# Function to get material from dropdown (no frequency restrictions)
+def get_material_for_frequency(dropdown, frequency):
+    """
+    Returns the material selected in the dropdown without any frequency-based restrictions.
+    This allows complete freedom in material selection regardless of the frequency.
+    """
+    # Simply return the selected material from the dropdown
+    return dropdown.get_selected_value()
+
 # Add acoustic materials
 #These lines define acoustic materials for the walls, ceiling, and floor of the room using the 
 # pyroomacoustics library. Each material is characterized by energy absorption and scattering.
-wall_material = pra.Material(energy_absorption=0.5, scattering=0.25)
-ceiling_material = pra.Material(energy_absorption=0.5, scattering=0.25)
-floor_material = pra.Material(energy_absorption=0.05, scattering=0.25)
+wall_dropdown = DropdownMenu(20, screen_size + 10, 220, 30, material_options, "Wall Material")
+ceiling_dropdown = DropdownMenu(290, screen_size + 10, 220, 30, material_options, "Ceiling Material") 
+floor_dropdown = DropdownMenu(560, screen_size + 10, 220, 30, material_options, "Floor Material")
+
+# Set default selection (can be adjusted as needed)
+wall_dropdown.selected_index = 2  # Unpainted Concrete
+ceiling_dropdown.selected_index = 3  # Wooden Lining
+floor_dropdown.selected_index = 5  # Ceramic Tiles
+
+# Active dropdown (for keyboard navigation)
+active_dropdown_index = 0
+dropdowns = [wall_dropdown, ceiling_dropdown, floor_dropdown]
+dropdowns[active_dropdown_index].set_active(True)
 
 # Add to the initialization section
 room_height = DEFAULT_ROOM_HEIGHT  # Height in feet
@@ -302,15 +439,29 @@ def calculate_acoustics():
 
     # Print debug information
     print(f"Room corners in meters: {corners_meters}")
+      # Get current sound source frequency for materials
+    current_frequency = sources[selected_source_index].frequency if sources else 500
+      # Get materials from user selections
+    selected_wall_material = get_material_for_frequency(wall_dropdown, current_frequency) 
+    selected_ceiling_material = get_material_for_frequency(ceiling_dropdown, current_frequency)
+    selected_floor_material = get_material_for_frequency(floor_dropdown, current_frequency)
+    
+    print(f"Using selected materials (frequency: {current_frequency} Hz):")
+    print(f"  Wall: {wall_dropdown.options[wall_dropdown.selected_index][0]}")
+    print(f"  Ceiling: {ceiling_dropdown.options[ceiling_dropdown.selected_index][0]}")
+    print(f"  Floor: {floor_dropdown.options[floor_dropdown.selected_index][0]}")
     
     # Setup pyroomacoustics room
     fs = 48000  # Sampling rate (48 kHz)
     pra_room = pra.Room.from_corners(corners_meters, fs=fs, max_order=5, 
-                                    materials=wall_material, ray_tracing=True, 
+                                    materials=selected_wall_material, ray_tracing=True, 
                                     air_absorption=True)
     
-    # Extrude 2D to 3D
-    pra_room.extrude(height_meters, materials=ceiling_material)
+    # Extrude 2D to 3D (ceiling and floor materials)
+    pra_room.extrude(height_meters, materials={
+        'ceiling': selected_ceiling_material,
+        'floor': selected_floor_material
+    })
     
     # Add sources and microphones (convert coordinates to meters)
     for source in sources:
@@ -647,9 +798,7 @@ def draw():
     
     screen.blit(freq_surface, (500, 10))
     screen.blit(amp_surface, (500, 35))
-    screen.blit(mode_surface, (650, 10))
-
-    # Draw bottom control panel background
+    screen.blit(mode_surface, (650, 10))    # Draw bottom control panel background
     bottom_panel_rect = pygame.Rect(0, screen_size, screen_size, bottom_panel_height)
     pygame.draw.rect(screen, GRID_COLOR, bottom_panel_rect)
     
@@ -658,9 +807,18 @@ def draw():
                     (0, screen_size),
                     (screen_size, screen_size), 2)
 
+    # Draw material dropdowns
+    wall_dropdown.draw(screen)
+    ceiling_dropdown.draw(screen) 
+    floor_dropdown.draw(screen)
+    
     # Create sections in bottom panel
-    panel_y = screen_size + 10  # Starting Y position for panel content
+    panel_y = screen_size + 50  # Starting Y position for panel content (after dropdowns)
     left_margin = 20
+      # Material controls help text
+    material_help = "Tab: Cycle materials | 1-8: Select material option"
+    material_help_surface = small_font.render(material_help, True, INTENSITY_LINE_COLOR)
+    screen.blit(material_help_surface, (left_margin, panel_y - 20))
     
     # Left section: Room Controls
     height_text = f"Room Height: {height_input_text} ft" if height_input_active else f"Room Height: {room_height:.1f} ft ({room_height * FEET_TO_METERS:.1f} m)"
@@ -689,9 +847,7 @@ def draw():
     screen.blit(analysis_surface, (2*screen_size//3, panel_y))
     for i, control in enumerate(analysis_controls):
         control_surface = small_font.render(control, True, INTENSITY_LINE_COLOR)
-        screen.blit(control_surface, (2*screen_size//3, panel_y + 25 + i*20))
-
-    # Additional status info in the bottom row
+        screen.blit(control_surface, (2*screen_size//3, panel_y + 25 + i*20))    # Additional status info in the bottom row
     status_y = panel_y + 50
     if height_adjustment_mode:
         status_text = "HEIGHT ADJUSTMENT MODE - Use Up/Down arrows"
@@ -700,7 +856,12 @@ def draw():
     elif mic_mode:
         status_text = "MICROPHONE PLACEMENT MODE - Click to place mics"
     else:
-        status_text = "Press ESC to clear room and start over"
+        # Show material info if a source is active
+        if any(source.active for source in sources):
+            active_source = sources[selected_source_index]
+            status_text = f"Current frequency: {active_source.frequency} Hz - Click dropdowns to change materials"
+        else:
+            status_text = "Press ESC to clear room and start over - Click material dropdowns to select materials"
     
     status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)
     status_rect = status_surface.get_rect(center=(screen_size//2, status_y + 10))
@@ -728,9 +889,11 @@ def reset_simulation():
     wave.fill(0)
     wave_prev.fill(0)
     # Reset walls
-    walls.fill(WallType.NONE)
-    # Reset sources to single initial source
-    sources = [SoundSource(nx // 6, ny // 6, frequency=440.0, amplitude=1.0, color=SOURCE_COLORS[0])]
+    walls.fill(WallType.NONE)    # Reset sources to single initial source with default frequency
+    sources = [SoundSource(nx // 6, ny // 6, 
+                           frequency=AVAILABLE_FREQUENCIES[DEFAULT_FREQUENCY_INDEX], 
+                           amplitude=1.0, 
+                           color=SOURCE_COLORS[0])]
     selected_source_index = 0
 
 def place_sound_source():
@@ -740,13 +903,12 @@ def place_sound_source():
         return
     grid_x = int(mouse_x // scale_x)
     grid_y = int(mouse_y // scale_y)
-
     if 0 <= grid_x < nx and 0 <= grid_y < ny and walls[grid_x, grid_y] == WallType.NONE:
         # Create new source with cycling colors
         new_source = SoundSource(
             x=grid_x, 
             y=grid_y,
-            frequency=440.0,
+            frequency=AVAILABLE_FREQUENCIES[DEFAULT_FREQUENCY_INDEX],
             amplitude=1.0,
             color=SOURCE_COLORS[len(sources) % len(SOURCE_COLORS)]
         )
@@ -763,26 +925,47 @@ while running:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_f:
-                sources[selected_source_index].active = True
+                # Toggle source activation on/off instead of just activating
+                sources[selected_source_index].active = not sources[selected_source_index].active
+                print(f"Source {selected_source_index+1} {'activated' if sources[selected_source_index].active else 'deactivated'}")
             elif event.key == pygame.K_SPACE:
+                # Toggle all sources on/off
+                all_active = all(source.active for source in sources)
                 for source in sources:
-                    source.active = True
+                    source.active = not all_active
+                print(f"All sources {'deactivated' if all_active else 'activated'}")
             elif event.key == pygame.K_h:
-                height_adjustment_mode = True
+                height_adjustment_mode = True            
             elif event.key == pygame.K_UP:
                 if height_adjustment_mode:
                     # Convert step from meters to feet
                     room_height = min(50.0, room_height + HEIGHT_STEP / FEET_TO_METERS)
                     print(f"Room height: {room_height * FEET_TO_METERS:.1f} meters")
                 else:
-                    sources[selected_source_index].frequency = min(2000.0, sources[selected_source_index].frequency + FREQ_STEP)
+                    # Find current frequency index and go to next frequency
+                    current_freq = sources[selected_source_index].frequency
+                    # Find closest idx in our list
+                    closest_idx = min(range(len(AVAILABLE_FREQUENCIES)), 
+                                    key=lambda i: abs(AVAILABLE_FREQUENCIES[i] - current_freq))
+                    # Move to next frequency (or stay at max)
+                    next_idx = min(closest_idx + 1, len(AVAILABLE_FREQUENCIES) - 1)
+                    sources[selected_source_index].frequency = AVAILABLE_FREQUENCIES[next_idx]
+                    print(f"Frequency: {sources[selected_source_index].frequency} Hz")
             elif event.key == pygame.K_DOWN:
                 if height_adjustment_mode:
                     # Convert step from meters to feet
                     room_height = max(2.0, room_height - HEIGHT_STEP / FEET_TO_METERS)
                     print(f"Room height: {room_height * FEET_TO_METERS:.1f} meters")
                 else:
-                    sources[selected_source_index].frequency = max(20.0, sources[selected_source_index].frequency - FREQ_STEP)
+                    # Find current frequency index and go to previous frequency
+                    current_freq = sources[selected_source_index].frequency
+                    # Find closest frequency index in our list
+                    closest_idx = min(range(len(AVAILABLE_FREQUENCIES)), 
+                                    key=lambda i: abs(AVAILABLE_FREQUENCIES[i] - current_freq))
+                    # Move to previous frequency (or stay at min)
+                    prev_idx = max(closest_idx - 1, 0)
+                    sources[selected_source_index].frequency = AVAILABLE_FREQUENCIES[prev_idx]
+                    print(f"Frequency: {sources[selected_source_index].frequency} Hz")
             elif event.key == pygame.K_RIGHT:
                 sources[selected_source_index].amplitude = min(2.0, sources[selected_source_index].amplitude + AMP_STEP)
             elif event.key == pygame.K_LEFT:
@@ -837,9 +1020,31 @@ while running:
                 else:
                     print("Need a complete room, at least one microphone, and one source to calculate acoustics")
             elif event.key == pygame.K_v:
-                visualize_room_layout()
+                visualize_room_layout()            
             elif event.key == pygame.K_3:  # Press '3' for 3D view
                 visualize_room_3d()
+            # Dropdown navigation with Tab and material selection with number keys
+            elif event.key == pygame.K_TAB and pygame.key.get_mods() & pygame.KMOD_SHIFT:
+                # Shift+Tab to cycle backwards through dropdowns
+                for dropdown in dropdowns:
+                    dropdown.set_active(False)
+                active_dropdown_index = (active_dropdown_index - 1) % len(dropdowns)
+                dropdowns[active_dropdown_index].set_active(True)
+            elif event.key == pygame.K_TAB:
+                # Tab to cycle through dropdowns
+                for dropdown in dropdowns:
+                    dropdown.set_active(False)
+                active_dropdown_index = (active_dropdown_index + 1) % len(dropdowns)
+                dropdowns[active_dropdown_index].set_active(True)
+            # Number keys 1-8 for selecting material options when a dropdown is active
+            elif pygame.K_1 <= event.key <= pygame.K_8:
+                option_index = event.key - pygame.K_1  # Convert key to 0-7 index
+                if option_index < len(material_options):
+                    current_dropdown = dropdowns[active_dropdown_index]
+                    current_dropdown.selected_index = option_index
+                    material_name = current_dropdown.options[option_index][0]
+                    print(f"Selected {current_dropdown.label}: {material_name}")        
+            
             elif height_input_active:
                 if event.key == pygame.K_RETURN:
                     try:
@@ -851,30 +1056,41 @@ while running:
                         print("Invalid height value")
                     height_input_active = False
                 elif event.key == pygame.K_BACKSPACE:
-                    height_input_text = height_input_text[:-1]
+                    height_input_text = height_input_text[:-1]                
                 elif event.unicode.isnumeric() or event.unicode == '.':
                     height_input_text += event.unicode
+                    
         elif event.type == pygame.KEYUP:
-            if event.key == pygame.K_f:
-                sources[selected_source_index].active = False
-            elif event.key == pygame.K_h:
+            # Remove the source deactivation from key release
+            # so sources stay active until toggled off
+            if event.key == pygame.K_h:
                 height_adjustment_mode = False
-            elif event.key == pygame.K_SPACE:
-                for source in sources:
-                    source.active = False
+        
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                if mouse_y < screen_size:  # Only handle clicks in the main area
-                    grid_x = int(mouse_x // scale_x)
-                    grid_y = int(mouse_y // scale_y)
-                    if 0 <= grid_x < nx and 0 <= grid_y < ny:
-                        if room_drawing_mode:
-                            room.add_corner(grid_x, grid_y)
-                            room.is_drawing = True
-                        elif mic_mode:
-                            microphones.append(Microphone(grid_x, grid_y))
-                            print(f"Microphone placed at grid position ({grid_x}, {grid_y})")
+                # Check if any dropdown was clicked
+                dropdown_clicked = False
+                for i, dropdown in enumerate(dropdowns):
+                    if dropdown.handle_event(event):
+                        # Set this dropdown as active
+                        for j, d in enumerate(dropdowns):
+                            d.set_active(j == i)
+                        active_dropdown_index = i
+                        dropdown_clicked = True
+                        break
+                
+                if not dropdown_clicked:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    if mouse_y < screen_size:  # Only handle clicks in the main area
+                        grid_x = int(mouse_x // scale_x)
+                        grid_y = int(mouse_y // scale_y)
+                        if 0 <= grid_x < nx and 0 <= grid_y < ny:
+                            if room_drawing_mode:
+                                room.add_corner(grid_x, grid_y)
+                                room.is_drawing = True
+                            elif mic_mode:
+                                microphones.append(Microphone(grid_x, grid_y))
+                                print(f"Microphone placed at grid position ({grid_x}, {grid_y})")
 
     update_wave()
     draw()
