@@ -33,7 +33,7 @@ class Microphone:
 
 # Simple dropdown menu class for material selection
 class DropdownMenu:
-    def __init__(self, x, y, width, height, options, label="Dropdown"):
+    def __init__(self, x, y, width, height, options, label="Dropdown", dropup=True):
         self.rect = pygame.Rect(x, y, width, height)
         self.options = options  # List of (name, value) tuples
         self.expanded = False
@@ -42,6 +42,7 @@ class DropdownMenu:
         self.option_height = 30  # Height of each dropdown option
         self.font = pygame.font.Font(None, 24)
         self.active = False  # To track if this dropdown is selected
+        self.dropup = dropup  # Whether to show options above (True) or below (False) the button
 
     def draw(self, screen):
         # Draw the main dropdown button
@@ -57,20 +58,29 @@ class DropdownMenu:
         label_text = self.font.render(f"{self.label}: {self.options[self.selected_index][0]}", True, (255, 255, 255))
         screen.blit(label_text, (self.rect.x + 10, self.rect.y + (self.rect.height - label_text.get_height()) // 2))
         
-        # Draw dropdown arrow
         arrow_points = [
             (self.rect.right - 20, self.rect.centery - 5),
-            (self.rect.right - 10, self.rect.centery + 5),
-            (self.rect.right - 30, self.rect.centery + 5)
+            (self.rect.right - 30, self.rect.centery + 5),
+            (self.rect.right - 10, self.rect.centery + 5)
         ]
+        
         pygame.draw.polygon(screen, (255, 255, 255), arrow_points)
         
-        # If expanded, draw options list
+        # If expanded, draw options list (either above or below button)
         if self.expanded:
+            total_height = len(self.options) * self.option_height
+            
             for i, (option_name, _) in enumerate(self.options):
+                if self.dropup:
+                    # Position above
+                    y_pos = self.rect.y - total_height + i * self.option_height
+                else:
+                    # Position below
+                    y_pos = self.rect.y + self.rect.height + i * self.option_height
+                
                 option_rect = pygame.Rect(
-                    self.rect.x, 
-                    self.rect.y + self.rect.height + i * self.option_height,
+                    self.rect.x,
+                    y_pos,
                     self.rect.width, 
                     self.option_height
                 )
@@ -96,10 +106,19 @@ class DropdownMenu:
             
             # If expanded, check if an option was clicked
             if self.expanded:
+                total_height = len(self.options) * self.option_height
+                
                 for i, _ in enumerate(self.options):
+                    if self.dropup:
+                        # Position above
+                        y_pos = self.rect.y - total_height + i * self.option_height
+                    else:
+                        # Position below
+                        y_pos = self.rect.y + self.rect.height + i * self.option_height
+                    
                     option_rect = pygame.Rect(
-                        self.rect.x, 
-                        self.rect.y + self.rect.height + i * self.option_height,
+                        self.rect.x,
+                        y_pos,
                         self.rect.width, 
                         self.option_height
                     )
@@ -118,11 +137,22 @@ class DropdownMenu:
     
     def get_selected_value(self):
         """Return the selected material object"""
-        return self.options[self.selected_index][1]
-
+        return self.options[self.selected_index][1]    
+    
     def set_active(self, active):
         """Set this dropdown as active (or not)"""
         self.active = active
+          
+    def get_available_options_text(self):
+        """Return a formatted string of available materials for this dropdown"""
+        if len(self.options) <= 4:
+            # For smaller lists, show all options separated by commas
+            options_text = ", ".join([f"{i+1}:{opt[0]}" for i, opt in enumerate(self.options)])
+            return f"{self.label} options: {options_text}"
+        else:
+            # For longer lists, show first few options and "more..."
+            options_text = ", ".join([f"{i+1}:{opt[0]}" for i, opt in enumerate(self.options[:3])])
+            return f"{self.label} options: {options_text}, ... (Press TAB and number keys to select)"
 
 # Keybinds:
 # F - Activate sound source
@@ -168,9 +198,10 @@ walls = np.zeros((nx, ny), dtype=int)  # 0 = no wall, 1 = reflective, 2 = absorp
 
 # Pygame initialization
 pygame.init()
-screen_size = 800
-bottom_panel_height = 130  # Increased height for bottom control panel with dropdowns
-screen = pygame.display.set_mode((screen_size, screen_size + bottom_panel_height))
+screen_width = 900  # Width of the window
+screen_height = 700  # Height of the main visualization area
+bottom_panel_height = 150  # Increased height for bottom control panel with dropdowns
+screen = pygame.display.set_mode((screen_width, screen_height + bottom_panel_height))
 pygame.display.set_caption('Sound Wave Propagation')
 clock = pygame.time.Clock()
 
@@ -194,8 +225,8 @@ GRID_COLOR = (40, 40, 40)  # Darker gray for better contrast
 INTENSITY_LINE_COLOR = (220, 220, 220)  # Lighter gray for text and lines
 
 # Scaling factor
-scale_x = screen_size / nx
-scale_y = screen_size / ny
+scale_x = screen_width / nx
+scale_y = screen_height / ny
 
 # Sound activation
 sound_active = False
@@ -240,23 +271,60 @@ wall_coefficients = {
 #List of all materials
 # total_reflection = pra.Material(energy_absorption=0, scattering=0.25)
 # total_absorption = pra.Material(energy_absorption=1, scattering=0.25)
+
+# Wall materials
 unpainted_concrete = pra.Material('unpainted_concrete')
-wooden_lining = pra.Material('wooden_lining')
+brickwork = pra.Material('brickwork')
 brick_wall_rough = pra.Material('brick_wall_rough')
-ceramic_tiles = pra.Material('ceramic_tiles')
+rough_concrete = pra.Material('rough_concrete')
 limestone_wall = pra.Material('limestone_wall')
 glass_3mm = pra.Material('glass_3mm')
+wooden_lining = pra.Material('wooden_lining')
 
-# Define material options for dropdowns
-material_options = [
-    # ("Total Reflection", total_reflection),
-    # ("Total Absorption", total_absorption),
+# Ceiling materials
+wooden_lining = pra.Material('wooden_lining')
+ceiling_plasterboard = pra.Material('ceiling_plasterboard')
+unpainted_concrete = pra.Material('unpainted_concrete')
+ceiling_fissured_tile = pra.Material('ceiling_fissured_tile')
+ceiling_metal_panel = pra.Material('ceiling_metal_panel')
+
+# Floor materials
+ceramic_tiles = pra.Material('ceramic_tiles')
+concrete_floor = pra.Material('concrete_floor')
+marble_floor = pra.Material('marble_floor')
+carpet_hairy = pra.Material('carpet_hairy')
+carpet_thin = pra.Material('carpet_thin')
+linoleum_on_concrete = pra.Material('linoleum_on_concrete')
+
+# Define material options for each surface type
+# Wall materials
+wall_material_options = [
     ("Unpainted Concrete", unpainted_concrete),
-    ("Wooden Lining", wooden_lining),
-    ("Brick Wall", brick_wall_rough),
-    ("Ceramic Tiles", ceramic_tiles),
+    ("Brickwork", brickwork),
+    ("Brick Wall (Rough)", brick_wall_rough),
+    ("Rough Concrete", rough_concrete),
     ("Limestone Wall", limestone_wall),
-    ("Glass (3mm)", glass_3mm)
+    ("Glass (3mm)", glass_3mm),
+    ("Wooden Lining", wooden_lining),
+]
+
+# Ceiling materials
+ceiling_material_options = [
+    ("Wooden Lining", wooden_lining),
+    ("Plasterboard Ceiling", ceiling_plasterboard),
+    ("Unpainted Concrete", unpainted_concrete),
+    ("Fissured Acoustic Tile", ceiling_fissured_tile),
+    ("Metal Panel Ceiling", ceiling_metal_panel),
+]
+
+# Floor materials
+floor_material_options = [
+    ("Ceramic Tiles", ceramic_tiles),
+    ("Concrete Floor", concrete_floor),
+    ("Marble Floor", marble_floor),
+    ("Hairy Carpet", carpet_hairy),
+    ("Thin Carpet", carpet_thin),
+    ("Linoleum on Concrete", linoleum_on_concrete),
 ]
 
 # Function to get material from dropdown (no frequency restrictions)
@@ -271,14 +339,14 @@ def get_material_for_frequency(dropdown, frequency):
 # Add acoustic materials
 #These lines define acoustic materials for the walls, ceiling, and floor of the room using the 
 # pyroomacoustics library. Each material is characterized by energy absorption and scattering.
-wall_dropdown = DropdownMenu(20, screen_size + 10, 220, 30, material_options, "Wall Material")
-ceiling_dropdown = DropdownMenu(290, screen_size + 10, 220, 30, material_options, "Ceiling Material") 
-floor_dropdown = DropdownMenu(560, screen_size + 10, 220, 30, material_options, "Floor Material")
+wall_dropdown = DropdownMenu(20, screen_height + 10, 260, 30, wall_material_options, "Wall")
+ceiling_dropdown = DropdownMenu(300, screen_height + 10, 260, 30, ceiling_material_options, "Ceiling") 
+floor_dropdown = DropdownMenu(580, screen_height + 10, 260, 30, floor_material_options, "Floor")
 
 # Set default selection (can be adjusted as needed)
-wall_dropdown.selected_index = 2  # Unpainted Concrete
-ceiling_dropdown.selected_index = 3  # Wooden Lining
-floor_dropdown.selected_index = 5  # Ceramic Tiles
+wall_dropdown.selected_index = 0  # Unpainted Concrete
+ceiling_dropdown.selected_index = 0  # Wooden Lining
+floor_dropdown.selected_index = 0  # Ceramic Tiles
 
 # Active dropdown (for keyboard navigation)
 active_dropdown_index = 0
@@ -721,10 +789,8 @@ def visualize_room_3d():
 
 def draw():
     # Start with a red background
-    screen.fill((128, 0, 0))  # Dark red background
-
-    # Draw wave visualization with lower opacity
-    s = pygame.Surface((screen_size, screen_size))
+    screen.fill((128, 0, 0))  # Dark red background    # Draw wave visualization with lower opacity
+    s = pygame.Surface((screen_width, screen_height))
     s.set_alpha(64)  # Make wave visualization more transparent
     s.fill((128, 0, 0))  # Match the red background
     
@@ -799,56 +865,54 @@ def draw():
     screen.blit(freq_surface, (500, 10))
     screen.blit(amp_surface, (500, 35))
     screen.blit(mode_surface, (650, 10))    # Draw bottom control panel background
-    bottom_panel_rect = pygame.Rect(0, screen_size, screen_size, bottom_panel_height)
+    bottom_panel_rect = pygame.Rect(0, screen_height, screen_width, bottom_panel_height)
     pygame.draw.rect(screen, GRID_COLOR, bottom_panel_rect)
     
     # Draw divider line
     pygame.draw.line(screen, INTENSITY_LINE_COLOR, 
-                    (0, screen_size),
-                    (screen_size, screen_size), 2)
+                    (0, screen_height),
+                    (screen_width, screen_height), 2)
 
     # Draw material dropdowns
     wall_dropdown.draw(screen)
     ceiling_dropdown.draw(screen) 
-    floor_dropdown.draw(screen)
-    
-    # Create sections in bottom panel
-    panel_y = screen_size + 50  # Starting Y position for panel content (after dropdowns)
+    floor_dropdown.draw(screen)    # Create sections in bottom panel
+    panel_y = screen_height + 45  # Starting Y position for panel content (slightly higher)
     left_margin = 20
-      # Material controls help text
-    material_help = "Tab: Cycle materials | 1-8: Select material option"
+    
+    # Material controls help text with more space
+    material_help = ""
     material_help_surface = small_font.render(material_help, True, INTENSITY_LINE_COLOR)
-    screen.blit(material_help_surface, (left_margin, panel_y - 20))
+    screen.blit(material_help_surface, (left_margin, screen_height + 5))  # Place right below the divider
     
     # Left section: Room Controls
     height_text = f"Room Height: {height_input_text} ft" if height_input_active else f"Room Height: {room_height:.1f} ft ({room_height * FEET_TO_METERS:.1f} m)"
     height_surface = small_font.render(height_text, True, INTENSITY_LINE_COLOR)
-    screen.blit(height_surface, (left_margin, panel_y))
-    
-    # Room controls help text
+    screen.blit(height_surface, (left_margin, panel_y + 15))  # Add padding after material help
+      # Room controls help text with adjusted spacing
     room_controls = ["H: Height Mode", "M: Room Mode", "X: Mic Mode"]
     for i, control in enumerate(room_controls):
         room_surface = small_font.render(control, True, INTENSITY_LINE_COLOR)
-        screen.blit(room_surface, (left_margin, panel_y + 25 + i*20))
+        screen.blit(room_surface, (left_margin, panel_y + 35 + i*18))  # Reduced vertical spacing
     
-    # Middle section: Source Controls
+    # Middle section: Source Controls with adjusted position
     source_text = "Source Controls:"
     source_controls = ["F: Single Source", "SPACE: All Sources", "S: Add Source"]
-    source_surface = small_font.render(source_text, True, INTENSITY_LINE_COLOR)
-    screen.blit(source_surface, (screen_size//3, panel_y))
+    source_surface = small_font.render(source_text, True, INTENSITY_LINE_COLOR)    
+    screen.blit(source_surface, (screen_width//3, panel_y + 15))  # Added padding
     for i, control in enumerate(source_controls):
         control_surface = small_font.render(control, True, INTENSITY_LINE_COLOR)
-        screen.blit(control_surface, (screen_size//3, panel_y + 25 + i*20))
-    
-    # Right section: Analysis Controls
+        screen.blit(control_surface, (screen_width//3, panel_y + 35 + i*18))  # Reduced vertical spacing
+      # Right section: Analysis Controls with adjusted position
     analysis_text = "Analysis:"
     analysis_controls = ["C: Calculate", "V: 2D View", "3: 3D View"]
-    analysis_surface = small_font.render(analysis_text, True, INTENSITY_LINE_COLOR)
-    screen.blit(analysis_surface, (2*screen_size//3, panel_y))
+    analysis_surface = small_font.render(analysis_text, True, INTENSITY_LINE_COLOR)    
+    screen.blit(analysis_surface, (2*screen_width//3, panel_y + 15))  # Added padding
     for i, control in enumerate(analysis_controls):
         control_surface = small_font.render(control, True, INTENSITY_LINE_COLOR)
-        screen.blit(control_surface, (2*screen_size//3, panel_y + 25 + i*20))    # Additional status info in the bottom row
-    status_y = panel_y + 50
+        screen.blit(control_surface, (2*screen_width//3, panel_y + 35 + i*18))  # Reduced vertical spacing
+      # Additional status info in the bottom row with more space
+    status_y = panel_y + 90  # Increased spacing before status text
     if height_adjustment_mode:
         status_text = "HEIGHT ADJUSTMENT MODE - Use Up/Down arrows"
     elif room_drawing_mode:
@@ -856,15 +920,17 @@ def draw():
     elif mic_mode:
         status_text = "MICROPHONE PLACEMENT MODE - Click to place mics"
     else:
-        # Show material info if a source is active
+        # Show material options for the active dropdown
+        active_dropdown = dropdowns[active_dropdown_index]
+        status_text = active_dropdown.get_available_options_text()
+        
+        # Add frequency info if sources are active
         if any(source.active for source in sources):
             active_source = sources[selected_source_index]
-            status_text = f"Current frequency: {active_source.frequency} Hz - Click dropdowns to change materials"
-        else:
-            status_text = "Press ESC to clear room and start over - Click material dropdowns to select materials"
+            status_text += f" | Frequency: {active_source.frequency} Hz"
     
-    status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)
-    status_rect = status_surface.get_rect(center=(screen_size//2, status_y + 10))
+    status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)    
+    status_rect = status_surface.get_rect(center=(screen_width//2, status_y + 10))
     screen.blit(status_surface, status_rect)
 
     pygame.display.flip()
@@ -899,7 +965,7 @@ def reset_simulation():
 def place_sound_source():
     global sources, selected_source_index
     mouse_x, mouse_y = pygame.mouse.get_pos()
-    if mouse_y >= screen_size:  # Don't place sources in the bottom panel
+    if mouse_y >= screen_height:  # Don't place sources in the bottom panel
         return
     grid_x = int(mouse_x // scale_x)
     grid_y = int(mouse_y // scale_y)
@@ -1035,15 +1101,15 @@ while running:
                 for dropdown in dropdowns:
                     dropdown.set_active(False)
                 active_dropdown_index = (active_dropdown_index + 1) % len(dropdowns)
-                dropdowns[active_dropdown_index].set_active(True)
-            # Number keys 1-8 for selecting material options when a dropdown is active
+                dropdowns[active_dropdown_index].set_active(True)            # Number keys 1-8 for selecting material options when a dropdown is active
             elif pygame.K_1 <= event.key <= pygame.K_8:
                 option_index = event.key - pygame.K_1  # Convert key to 0-7 index
-                if option_index < len(material_options):
-                    current_dropdown = dropdowns[active_dropdown_index]
+                current_dropdown = dropdowns[active_dropdown_index]
+                # Only change if the option index is valid for this dropdown
+                if option_index < len(current_dropdown.options):
                     current_dropdown.selected_index = option_index
                     material_name = current_dropdown.options[option_index][0]
-                    print(f"Selected {current_dropdown.label}: {material_name}")        
+                    print(f"Selected {current_dropdown.label}: {material_name}")
             
             elif height_input_active:
                 if event.key == pygame.K_RETURN:
@@ -1078,10 +1144,9 @@ while running:
                         active_dropdown_index = i
                         dropdown_clicked = True
                         break
-                
                 if not dropdown_clicked:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
-                    if mouse_y < screen_size:  # Only handle clicks in the main area
+                    if mouse_y < screen_height:  # Only handle clicks in the main area
                         grid_x = int(mouse_x // scale_x)
                         grid_y = int(mouse_y // scale_y)
                         if 0 <= grid_x < nx and 0 <= grid_y < ny:
