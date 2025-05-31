@@ -813,89 +813,163 @@ def visualize_room_layout():
     show_plot_in_thread(fig)
 
 def visualize_room_3d():
-    """Create a 3D visualization of the room layout with matplotlib"""
+    """Create a 3D visualization of the room layout with matplotlib in a detached process"""
     if not room.corners:
         print("No room layout to visualize")
         return
     
-    # Close any existing '3D Room Layout' figure
-    for fig in plt.get_fignums():
-        if plt.figure(fig).get_label() == '3D Room Layout':
-            plt.close(fig)
+    # Save all necessary data to a temporary file
+    import tempfile
+    import pickle
+    import os
+    import subprocess
+    import sys
     
-    # Create new figure with 3D projection
-    fig = plt.figure('3D Room Layout', figsize=(10, 10))
-    plt.clf()
-    ax = fig.add_subplot(111, projection='3d')
+    print("Launching 3D visualization in a separate window...")
     
-    # Convert room height to meters
-    height_meters = room_height * FEET_TO_METERS
+    data = {
+        "corners": room.corners,
+        "height": room_height * FEET_TO_METERS,
+        "room_width": ROOM_WIDTH, 
+        "room_height": ROOM_HEIGHT,
+        "nx": nx,
+        "ny": ny,
+        "sources": [(s.x, s.y, s.frequency, s.amplitude, s.color) for s in sources],
+        "microphones": [(m.x, m.y) for m in microphones]
+    }
     
-    # Plot room corners and walls (bottom)
-    corners = np.array(room.corners + [room.corners[0]])  # Add first corner again to close the polygon
-    x_coords = [x * ROOM_WIDTH/nx for x, _ in corners]
-    y_coords = [y * ROOM_HEIGHT/ny for _, y in corners]
-    z_coords = [0] * len(corners)  # Bottom of the room
+    temp_dir = tempfile.gettempdir()
+    data_file = os.path.join(temp_dir, "room_3d_data.pkl")
+    with open(data_file, "wb") as f:
+        pickle.dump(data, f)
     
-    # Plot bottom edges
-    ax.plot(x_coords, y_coords, z_coords, 'g-', linewidth=2, label='Bottom Edges')
+    # Create a script file that will be run as a separate process
+    script_file = os.path.join(temp_dir, "show_3d_room.py")
+    with open(script_file, "w") as f:
+        f.write("""
+import pickle
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
+from dataclasses import dataclass
+
+@dataclass
+class SoundSource:
+    x: int
+    y: int
+    frequency: float = 440.0
+    amplitude: float = 1.0
+    color: tuple = (255, 255, 0)
+
+@dataclass
+class Microphone:
+    x: int
+    y: int
+    color: tuple = (255, 192, 203)  # Pink color for microphone
+
+# Load the data
+with open(r"{data_file}", "rb") as f:
+    data = pickle.load(f)
+
+# Extract data
+corners = data["corners"]
+height_meters = data["height"]
+room_width = data["room_width"]
+room_height = data["room_height"]
+nx = data["nx"]
+ny = data["ny"]
+
+# Convert tuples back to objects
+sources = [SoundSource(x, y, frequency, amplitude, color) 
+          for x, y, frequency, amplitude, color in data["sources"]]
+microphones = [Microphone(x, y) for x, y in data["microphones"]]
+
+print("Room data loaded successfully")
+print(f"Room height: {{height_meters:.2f}} meters")
+print(f"Number of corners: {{len(corners)}}")
+print(f"Number of sources: {{len(sources)}}")
+print(f"Number of microphones: {{len(microphones)}}")
+
+# Create 3D plot
+plt.close('all')  # Close any existing figures
+fig = plt.figure('3D Room Layout', figsize=(10, 10))
+ax = fig.add_subplot(111, projection='3d')
+
+# Plot room corners and walls (bottom)
+room_corners = corners + [corners[0]]  # Add first corner again to close the polygon
+x_coords = [x * room_width/nx for x, _ in room_corners]
+y_coords = [y * room_height/ny for _, y in room_corners]
+z_coords = [0] * len(room_corners)
+
+# Plot bottom edges
+ax.plot(x_coords, y_coords, z_coords, 'g-', linewidth=2, label='Bottom Edges')
+
+# Plot top edges
+ax.plot(x_coords, y_coords, [height_meters] * len(room_corners), 'g-', linewidth=2, label='Top Edges')
+
+# Plot vertical edges
+for i in range(len(corners)):
+    x = corners[i][0] * room_width/nx
+    y = corners[i][1] * room_height/ny
+    ax.plot([x, x], [y, y], [0, height_meters], 'g-', linewidth=2)
+
+# Plot sources with vertical guide lines
+for i, source in enumerate(sources):
+    x = source.x * room_width/nx
+    y = source.y * room_height/ny
+    z = height_meters/2  # Place sources at mid-height
+    ax.scatter([x], [y], [z], c='yellow', marker='*', s=200, label=f'Source {{i+1}}')
+    # Add vertical guide line
+    ax.plot([x, x], [y, y], [0, height_meters], 'y--', alpha=0.3)
+
+# Plot microphones with vertical guide lines
+for i, mic in enumerate(microphones):
+    x = mic.x * room_width/nx
+    y = mic.y * room_height/ny
+    z = height_meters/2  # Place microphones at mid-height
+    ax.scatter([x], [y], [z], c='pink', marker='p', s=100, label=f'Mic {{i+1}}')
+    # Add vertical guide line
+    ax.plot([x, x], [y, y], [0, height_meters], 'm--', alpha=0.3)
+
+# Set labels and title
+ax.set_xlabel('Width (m)')
+ax.set_ylabel('Depth (m)')
+ax.set_zlabel('Height (m)')
+ax.set_title('3D Room Layout')
+
+# Add legend without duplicate labels
+handles, labels = ax.get_legend_handles_labels()
+by_label = dict(zip(labels, handles))
+ax.legend(by_label.values(), by_label.keys())
+
+# Set equal aspect ratio for all axes
+max_range = np.array([
+    max(x_coords) - min(x_coords),
+    max(y_coords) - min(y_coords),
+    height_meters
+]).max() / 2.0
+
+mid_x = (max(x_coords) + min(x_coords)) * 0.5
+mid_y = (max(y_coords) + min(y_coords)) * 0.5
+mid_z = height_meters * 0.5
+
+ax.set_xlim(mid_x - max_range, mid_x + max_range)
+ax.set_ylim(mid_y - max_range, mid_y + max_range)
+ax.set_zlim(0, height_meters)
+ax.grid(True)
+
+# Set a comfortable initial view angle
+ax.view_init(elev=30, azim=-60)
+
+print("3D visualization ready - you can rotate the view with your mouse")
+print("Close the window to return to the main application")
+
+# Enable rotation with the mouse - this will block until window is closed
+plt.show()
+""".format(data_file=data_file.replace("\\", "\\\\")))
     
-    # Plot top edges
-    ax.plot(x_coords, y_coords, [height_meters] * len(corners), 'g-', linewidth=2, label='Top Edges')
-    
-    # Plot vertical edges
-    for i in range(len(room.corners)):
-        x = room.corners[i][0] * ROOM_WIDTH/nx
-        y = room.corners[i][1] * ROOM_HEIGHT/ny
-        ax.plot([x, x], [y, y], [0, height_meters], 'g-', linewidth=2)
-    
-    # Plot sources with vertical guide lines
-    for i, source in enumerate(sources):
-        x = source.x * ROOM_WIDTH/nx
-        y = source.y * ROOM_HEIGHT/ny
-        z = height_meters/2  # Place sources at mid-height
-        ax.scatter([x], [y], [z], c='yellow', marker='*', s=200, label=f'Source {i+1}')
-        # Add vertical guide line
-        ax.plot([x, x], [y, y], [0, height_meters], 'y--', alpha=0.3)
-    
-    # Plot microphones with vertical guide lines
-    for i, mic in enumerate(microphones):
-        x = mic.x * ROOM_WIDTH/nx
-        y = mic.y * ROOM_HEIGHT/ny
-        z = height_meters/2  # Place microphones at mid-height
-        ax.scatter([x], [y], [z], c='pink', marker='p', s=100, label=f'Mic {i+1}')
-        # Add vertical guide line
-        ax.plot([x, x], [y, y], [0, height_meters], 'm--', alpha=0.3)
-    
-    # Set labels and title
-    ax.set_xlabel('Width (m)')
-    ax.set_ylabel('Depth (m)')
-    ax.set_zlabel('Height (m)')
-    ax.set_title('3D Room Layout')
-    
-    # Add legend without duplicate labels
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())
-    
-    # Set equal aspect ratio for all axes
-    max_range = np.array([
-        max(x_coords) - min(x_coords),
-        max(y_coords) - min(y_coords),
-        height_meters
-    ]).max() / 2.0
-    
-    mid_x = (max(x_coords) + min(x_coords)) * 0.5
-    mid_y = (max(y_coords) + min(y_coords)) * 0.5
-    mid_z = height_meters * 0.5
-    
-    ax.set_xlim(mid_x - max_range, mid_x + max_range)
-    ax.set_ylim(mid_y - max_range, mid_y + max_range)
-    ax.set_zlim(0, height_meters)
-      # Enable grid
-    ax.grid(True)
-    
-    show_plot_in_thread(fig)
+    # Run the script in a new process
+    subprocess.Popen([sys.executable, script_file])
 
 def draw():
     # Start with a red background
