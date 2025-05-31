@@ -245,7 +245,7 @@ AVAILABLE_FREQUENCIES = [125, 250, 500, 1000, 2000, 4000, 8000]  # Standard acou
 DEFAULT_FREQUENCY_INDEX = 2  # Start with 500 Hz (index 2)
 
 # Amplitude step size
-AMP_STEP = 0.1    # Amplitude change per keypress
+AMP_STEP = 0.2    # Amplitude change per keypress
 
 # Add these constants after the other room/grid parameters
 TEST_BOX_SIZE = 20  # Size of test boxes in grid units
@@ -399,35 +399,58 @@ def update_wave():
     wall_reflection_coeff = get_wall_coefficient(wall_material)
 
     # Calculate current decay rate based on RT60
-    current_decay = calculate_decay_rate(current_rt60)
-
-    # Iterates through each sound source, and only generates noise is source is active.
+    current_decay = calculate_decay_rate(current_rt60)    # Iterates through each sound source, and only generates noise if source is active.
     for source in sources:
         if source.active:  # Check individual source activation
             t = pygame.time.get_ticks() / 1000.0
-            # Generates a wave at the source's position.
-            wave[source.x, source.y] += source.amplitude * np.sin(2 * np.pi * source.frequency * t)
-            # Source.amplitude is the wave amplitude/height/intensity
-            # np.sin(2 * np.pi * source.frequency * t) is the wave frequency
-    
-    for x in range(1, nx - 1):
-        for y in range(1, ny - 1):
-            # Check if this cell is a wall
-            is_wall = walls[x, y] > 0
             
-            if not is_wall:
-                # Standard wave equation for propagation through 2D free space
-                wave_next[x, y] = (2 * wave[x, y] - wave_prev[x, y] +
-                                # c is speed of sound, dt is time step, dx is spatial step
-                                (c * dt / dx) ** 2 *
-                                # Gets the horizontal and vertical neighbors
-                                (wave[x + 1, y] + wave[x - 1, y] +
-                                 wave[x, y + 1] + wave[x, y - 1] - 
-                                 4 * wave[x, y]))
-            else:
-                # Apply reflection/absorption based on the wall material
-                incident_wave = wave[x, y]
-                wave_next[x, y] = wall_reflection_coeff * incident_wave
+            # Calculate frequency-dependent enhancement factor
+            # This ensures higher frequencies have enough energy to propagate
+            # through the simulation despite the grid resolution limitations
+            freq_enhancement = min(10, max(1, source.frequency / 250))
+            
+            # Generate multiple wave samples for higher frequencies to avoid temporal aliasing
+            # Higher frequencies need more samples per frame for proper representation
+            num_samples = max(1, int(source.frequency / 30))
+            wave_contribution = 0
+            
+            for i in range(num_samples):
+                # Calculate time offsets within this frame for better sampling
+                sample_time = t + (i * (1.0/60.0) / max(1, num_samples))
+                wave_contribution += np.sin(2 * np.pi * source.frequency * sample_time)
+            
+            # Add the averaged wave contribution with frequency enhancement
+            wave[source.x, source.y] += source.amplitude * freq_enhancement * (wave_contribution / num_samples)
+            
+            # Source.amplitude is the wave amplitude/height/intensity
+            # The wave frequency is determined by source.frequency
+            # freq_enhancement increases the amplitude for higher frequencies
+            # to compensate for grid resolution limitations
+    
+        for x in range(1, nx - 1):
+            for y in range(1, ny - 1):
+                # Check if this cell is a wall
+                is_wall = walls[x, y] > 0
+                if not is_wall:
+                    # Get current frequency for adaptive wave propagation
+                    current_freq = sources[selected_source_index].frequency if sources and selected_source_index < len(sources) else 500
+                    
+                    # For high frequencies, adjust propagation with a small damping factor
+                    # to compensate for numerical dispersion that affects high frequencies
+                    damping_factor = max(0.985, 1.0 - (current_freq / 10000))
+                    
+                    # Enhanced wave equation with frequency-aware damping
+                    wave_next[x, y] = damping_factor * (2 * wave[x, y] - wave_prev[x, y] +
+                                    # c is speed of sound, dt is time step, dx is spatial step
+                                    (c * dt / dx) ** 2 *
+                                    # Gets the horizontal and vertical neighbors
+                                    (wave[x + 1, y] + wave[x - 1, y] +
+                                    wave[x, y + 1] + wave[x, y - 1] - 
+                                    4 * wave[x, y]))
+                else:
+                    # Apply reflection/absorption based on the wall material
+                    incident_wave = wave[x, y]
+                    wave_next[x, y] = wall_reflection_coeff * incident_wave
 
     # Apply RT60-based decay
     wave_next *= current_decay
@@ -977,14 +1000,25 @@ def draw():
     s = pygame.Surface((screen_width, screen_height))
     s.set_alpha(64)  # Make wave visualization more transparent
     s.fill((128, 0, 0))  # Match the red background
-      # Draw walls and wave visualization
+      # Get current frequency for visualization scaling
+    current_freq = sources[selected_source_index].frequency if sources and selected_source_index < len(sources) else 500
+    
+    # For higher frequencies, amplify the wave visualization
+    # This addresses the visualization issue for high frequencies without changing grid resolution
+    # Higher frequencies (>500Hz) have shorter wavelengths that may be less visible at the current grid resolution
+    # Scale factor increases as frequency increases, with 500Hz as the baseline (scale = 1.0)
+    # The scaling is capped at 10x to prevent excessive amplification
+    vis_scale = min(10, max(1, current_freq / 500))
+    
+    # Draw walls and wave visualization
     for x in range(nx):
         for y in range(ny):
             if walls[x, y] > 0:
                 pygame.draw.rect(screen, WALL_COLOR, 
                                (x * scale_x, y * scale_y, scale_x, scale_y))
             else:
-                intensity = int((wave[x, y] + 1) * 127.5)
+                # Apply frequency-based scaling to wave visualization
+                intensity = int(((wave[x, y] * vis_scale) + 1) * 127.5)
                 intensity = max(0, min(255, intensity))
                 pygame.draw.rect(screen, (intensity, 0, 0), 
                                (x * scale_x, y * scale_y, scale_x, scale_y))
@@ -1040,14 +1074,20 @@ def draw():
         mode_text += "Height Adjustment"
     else:
         mode_text += "None"
+      # Calculate visualization scaling factor for display
+    current_freq = sources[selected_source_index].frequency if sources and selected_source_index < len(sources) else 500
+    vis_scale = min(10, max(1, current_freq / 500))
+    scale_text = f"Vis Scale: {vis_scale:.1f}x"
     
     freq_surface = small_font.render(freq_text, True, INTENSITY_LINE_COLOR)
     amp_surface = small_font.render(amp_text, True, INTENSITY_LINE_COLOR)
     mode_surface = small_font.render(mode_text, True, INTENSITY_LINE_COLOR)
+    scale_surface = small_font.render(scale_text, True, INTENSITY_LINE_COLOR)
     
     screen.blit(freq_surface, (500, 10))
     screen.blit(amp_surface, (500, 35))
-    screen.blit(mode_surface, (650, 10))    # Draw bottom control panel background
+    screen.blit(mode_surface, (650, 10))
+    screen.blit(scale_surface, (650, 35))# Draw bottom control panel background
     bottom_panel_rect = pygame.Rect(0, screen_height, screen_width, bottom_panel_height)
     pygame.draw.rect(screen, GRID_COLOR, bottom_panel_rect)
     
@@ -1088,7 +1128,7 @@ def draw():
         screen.blit(control_surface, (screen_width//3, panel_y + 35 + i*18))  # Reduced vertical spacing
       # Right section: Analysis Controls with adjusted position
     analysis_text = "Analysis:"
-    analysis_controls = ["C: Calculate", "V: 2D View", "3: 3D View"]
+    analysis_controls = ["C: Calculate", "2: 2D View", "3: 3D View"]
     analysis_surface = small_font.render(analysis_text, True, INTENSITY_LINE_COLOR)    
     screen.blit(analysis_surface, (2*screen_width//3, panel_y + 15))  # Added padding
     for i, control in enumerate(analysis_controls):
@@ -1214,7 +1254,7 @@ while running:
                     sources[selected_source_index].frequency = AVAILABLE_FREQUENCIES[prev_idx]
                     print(f"Frequency: {sources[selected_source_index].frequency} Hz")
             elif event.key == pygame.K_RIGHT:
-                sources[selected_source_index].amplitude = min(2.0, sources[selected_source_index].amplitude + AMP_STEP)
+                sources[selected_source_index].amplitude = min(5.0, sources[selected_source_index].amplitude + AMP_STEP)
             elif event.key == pygame.K_LEFT:
                 sources[selected_source_index].amplitude = max(0.1, sources[selected_source_index].amplitude - AMP_STEP)
             elif event.key == pygame.K_s:
@@ -1340,7 +1380,7 @@ while running:
 
     update_wave()
     draw()
-    clock.tick(60)
+    clock.tick(144)
 
 pygame.quit()
 sys.exit()
