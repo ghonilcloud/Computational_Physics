@@ -63,7 +63,7 @@ class DropdownMenu:
             (self.rect.right - 30, self.rect.centery + 5),
             (self.rect.right - 10, self.rect.centery + 5)
         ]
-        
+
         pygame.draw.polygon(screen, (255, 255, 255), arrow_points)
         
         # If expanded, draw options list (either above or below button)
@@ -186,15 +186,12 @@ wave_prev = np.zeros((nx, ny))
 # Initial source position
 source_x, source_y = nx // 6, ny // 6
 
-# Define wall types
-class WallType:
-    NONE = 0
-    REFLECTIVE = 1
-    ABSORPTIVE = 2
-    PARTIAL = 3
+# Define wall constants
+WALL_NONE = 0.0
+WALL_PRESENT = 1.0
 
-# Modify walls array to store wall types
-walls = np.zeros((nx, ny), dtype=int)  # 0 = no wall, 1 = reflective, 2 = absorptive
+# Modify walls array to store wall presence (0.0 for no wall, 1.0 for wall)
+walls = np.zeros((nx, ny), dtype=float)
 
 # Pygame initialization
 pygame.init()
@@ -206,12 +203,7 @@ pygame.display.set_caption('Sound Wave Propagation')
 clock = pygame.time.Clock()
 
 # Colors
-WALL_COLORS = {
-    WallType.NONE: (128, 0, 0),  # Dark red background
-    WallType.REFLECTIVE: (128, 0, 0),  # Match background red
-    WallType.ABSORPTIVE: (128, 0, 0),  # Match background red
-    WallType.PARTIAL: (128, 0, 0)      # Match background red
-}
+WALL_COLOR = (128, 0, 0)  # Dark red background/wall color
 
 SOURCE_COLORS = [
     (255, 255, 0),  # Yellow
@@ -260,13 +252,32 @@ FEET_TO_METERS = 0.3048  # Conversion factor
 HEIGHT_STEP = 0.3  # Height change in meters per keypress
 DEFAULT_ROOM_HEIGHT = 3.0 / FEET_TO_METERS  # Default height in feet (3 meters)
 
-# Wall absorption coefficients
-wall_coefficients = {
-    WallType.NONE: 0.0,        # No effect on wave
-    WallType.REFLECTIVE: 0.9,  # Reflects the wave (inverts amplitude)
-    WallType.ABSORPTIVE: 0.1,   # Absorbs the wave (reduces amplitude)
-    WallType.PARTIAL: 0.5       # Partially absorbs the wave
-}
+# Function to get reflection/absorption coefficient from wall material
+def get_wall_coefficient(material):
+    """
+    Extract reflection coefficient from wall material for 2D visualization.
+    Higher absorption = lower reflection coefficient.
+    Returns a value between 0.0 (complete absorption) and 1.0 (complete reflection).
+    """
+    # Extract average absorption value across frequencies
+    if hasattr(material, 'absorption_coeffs'):
+        # Check if absorption_coeffs is a dictionary or a list
+        if isinstance(material.absorption_coeffs, dict):
+            # If it's a dictionary, get values and calculate mean
+            absorption = np.mean(list(material.absorption_coeffs.values()))
+        else:
+            # If it's a list or another iterable, calculate mean directly
+            absorption = np.mean(material.absorption_coeffs)
+    elif hasattr(material, 'energy_absorption'):
+        # Direct absorption value
+        absorption = material.energy_absorption
+    else:
+        # Default moderate absorption if can't determine
+        absorption = 0.3
+    
+    # Convert absorption to reflection (1 - absorption)
+    # Higher absorption = lower reflection
+    return 1.0 - absorption
 
 #List of all materials
 # total_reflection = pra.Material(energy_absorption=0, scattering=0.25)
@@ -372,6 +383,18 @@ def update_wave():
     global wave, wave_prev
     wave_next = np.copy(wave)
 
+    # Get the wall material reflection coefficient
+    if len(sources) > 0:
+        current_frequency = sources[selected_source_index].frequency
+    else:
+        current_frequency = 500  # Default if no sources
+    
+    # Get the wall material from dropdown
+    wall_material = get_material_for_frequency(wall_dropdown, current_frequency)
+    
+    # Calculate reflection coefficient for walls (1.0 = perfect reflection, 0.0 = complete absorption)
+    wall_reflection_coeff = get_wall_coefficient(wall_material)
+
     # Calculate current decay rate based on RT60
     current_decay = calculate_decay_rate(current_rt60)
 
@@ -383,19 +406,14 @@ def update_wave():
             wave[source.x, source.y] += source.amplitude * np.sin(2 * np.pi * source.frequency * t)
             # Source.amplitude is the wave amplitude/height/intensity
             # np.sin(2 * np.pi * source.frequency * t) is the wave frequency
-            
     
     for x in range(1, nx - 1):
         for y in range(1, ny - 1):
-            # Checks the wall type at the current position
-            # and applies the appropriate reflection/absorption coefficient
-            wall_type = walls[x, y]
-            coefficient = wall_coefficients[wall_type]
+            # Check if this cell is a wall
+            is_wall = walls[x, y] > 0
             
-            if wall_type == WallType.NONE:
-                # Standard wave equation for propagation though 2D free space
-                # It is a discretized 2D wave equation, 
-                # Handles time evolution of the wave
+            if not is_wall:
+                # Standard wave equation for propagation through 2D free space
                 wave_next[x, y] = (2 * wave[x, y] - wave_prev[x, y] +
                                 # c is speed of sound, dt is time step, dx is spatial step
                                 (c * dt / dx) ** 2 *
@@ -403,13 +421,10 @@ def update_wave():
                                 (wave[x + 1, y] + wave[x - 1, y] +
                                  wave[x, y + 1] + wave[x, y - 1] - 
                                  4 * wave[x, y]))
-            elif wall_type == WallType.ABSORPTIVE:
-                # Instant absorption for absorptive walls
-                wave_next[x, y] = 0
             else:
-                # Reflection for other wall types
+                # Apply reflection/absorption based on the wall material
                 incident_wave = wave[x, y]
-                wave_next[x, y] = coefficient * incident_wave
+                wave_next[x, y] = wall_reflection_coeff * incident_wave
 
     # Apply RT60-based decay
     wave_next *= current_decay
@@ -434,8 +449,8 @@ class Room:
             x2, y2 = self.corners[-1]
             self._draw_wall_line(x1, y1, x2, y2)
         
-        print(f"Corner added at grid position ({x}, {y})")
-
+        print(f"Corner added at grid position ({x}, {y})")    
+        
     def _draw_wall_line(self, x1, y1, x2, y2):
         """Draw a line of wall pixels between two points using Bresenham's algorithm"""
         dx = abs(x2 - x1)
@@ -447,7 +462,7 @@ class Room:
 
         while True:
             if 0 <= x < nx and 0 <= y < ny:
-                walls[x, y] = WallType.REFLECTIVE
+                walls[x, y] = WALL_PRESENT
             
             if x == x2 and y == y2:
                 break
@@ -479,7 +494,7 @@ class Room:
         """Clear all corners and walls"""
         self.corners = []
         self.is_drawing = False
-        walls.fill(WallType.NONE)
+        walls.fill(WALL_NONE)
 
 # Replace walls array with Room instance
 room = Room()
@@ -793,12 +808,11 @@ def draw():
     s = pygame.Surface((screen_width, screen_height))
     s.set_alpha(64)  # Make wave visualization more transparent
     s.fill((128, 0, 0))  # Match the red background
-    
-    # Draw walls and wave visualization
+      # Draw walls and wave visualization
     for x in range(nx):
         for y in range(ny):
-            if walls[x, y] != WallType.NONE:
-                pygame.draw.rect(screen, WALL_COLORS[walls[x, y]], 
+            if walls[x, y] > 0:
+                pygame.draw.rect(screen, WALL_COLOR, 
                                (x * scale_x, y * scale_y, scale_x, scale_y))
             else:
                 intensity = int((wave[x, y] + 1) * 127.5)
@@ -943,19 +957,17 @@ def erase_at_position(x: int, y: int):
             if len(sources) > 1:  # Keep at least one source
                 sources.pop(len(sources) - 1 - i)
                 selected_source_index = min(selected_source_index, len(sources) - 1)
-                return True
-    # If no source was erased, erase walls
+                return True    # If no source was erased, erase walls
     if 0 <= x < nx and 0 <= y < ny:
-        walls[x, y] = WallType.NONE
+        walls[x, y] = WALL_NONE
     return False
 
 def reset_simulation():
     global wave, wave_prev, walls, sources, selected_source_index
     # Reset wave fields
     wave.fill(0)
-    wave_prev.fill(0)
-    # Reset walls
-    walls.fill(WallType.NONE)    # Reset sources to single initial source with default frequency
+    wave_prev.fill(0)    # Reset walls
+    walls.fill(WALL_NONE)# Reset sources to single initial source with default frequency
     sources = [SoundSource(nx // 6, ny // 6, 
                            frequency=AVAILABLE_FREQUENCIES[DEFAULT_FREQUENCY_INDEX], 
                            amplitude=1.0, 
@@ -969,7 +981,7 @@ def place_sound_source():
         return
     grid_x = int(mouse_x // scale_x)
     grid_y = int(mouse_y // scale_y)
-    if 0 <= grid_x < nx and 0 <= grid_y < ny and walls[grid_x, grid_y] == WallType.NONE:
+    if 0 <= grid_x < nx and 0 <= grid_y < ny and walls[grid_x, grid_y] == WALL_NONE:
         # Create new source with cycling colors
         new_source = SoundSource(
             x=grid_x, 
