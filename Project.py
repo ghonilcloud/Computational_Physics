@@ -7,7 +7,10 @@ import colorsys
 from math import floor
 import pyroomacoustics as pra
 from numpy import hamming
-import matplotlib.pyplot as plt  # Add this line
+import threading  # For running plots in separate threads
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend to avoid thread issues
+import matplotlib.pyplot as plt
 
 @dataclass
 class SoundSource:
@@ -575,69 +578,112 @@ def calculate_acoustics():
     # Compute image sources
     pra_room.image_source_model()
     
+    # Compute the room impulse response (RIR)
+    pra_room.compute_rir()
+    print("Room Impulse Response computed successfully")
+      
     # Close any existing figures first
     plt.close('all')
     
-    # Create and activate the RIR figure
+    # Create the RIR plot directly to make sure it's in the right figure
     fig_rir = plt.figure('Room Impulse Response', figsize=(20, 10))
     plt.clf()  # Clear the figure
-    pra_room.plot_rir()  # Plot the room impulse response
-    plt.gcf().set_size_inches(20, 10)  # Set figure size after plotting
     
-    # Calculate RT60
-    t60 = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, plot=False)
-    print(f"The RT60 is {t60 * 1000:.0f} ms")
+    # Check if RIR was computed successfully
+    if pra_room.rir is None:
+        # If no RIR is available, show a message
+        ax = fig_rir.add_subplot(111)
+        ax.text(0.5, 0.5, "No Room Impulse Response data available.\nTry adjusting room parameters.", 
+                horizontalalignment='center', verticalalignment='center', fontsize=16)
+        ax.set_axis_off()
+    else:
+        # Manually plot the Room Impulse Response instead of using pra_room.plot_rir()
+        for i in range(len(pra_room.rir)):
+            for j in range(len(pra_room.rir[i])):
+                plt.subplot(len(pra_room.rir), len(pra_room.rir[0]), i*len(pra_room.rir[0])+j+1)
+                plt.plot(pra_room.rir[i][j])
+                plt.title(f'Source {j} to Mic {i}')
+                plt.xlabel('Time (samples)')
+                plt.ylabel('Amplitude')
+                plt.grid(True)
     
-    # Update simulation's RT60
-    current_rt60 = t60
-    print(f"Updated simulation decay rate based on RT60: {calculate_decay_rate(t60):.6f}")
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
     
-    # Calculate Frequency Response
-    chunk_size = 512
-    step_size = chunk_size // 2
-    min_freq = 20
-    max_freq = 2000
+    # Make sure we use the current figure
+    fig_rir = plt.gcf()
+    fig_rir.set_size_inches(20, 10)  # Set figure size after plotting
     
-    rir = pra_room.rir[0][0]
-    rir = np.pad(rir, (step_size, len(rir) % chunk_size))
+    # Calculate RT60 if RIR is available
+    if pra_room.rir is not None and len(pra_room.rir) > 0 and len(pra_room.rir[0]) > 0:
+        t60 = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, plot=False)
+        print(f"The RT60 is {t60 * 1000:.0f} ms")
+        
+        # Update simulation's RT60
+        current_rt60 = t60
+        print(f"Updated simulation decay rate based on RT60: {calculate_decay_rate(t60):.6f}")
+    else:
+        print("Unable to calculate RT60: Room impulse response not available")
+        # Keep the current RT60 value
     
-    avg_freq_response = np.zeros(chunk_size, dtype=np.complex128)
+    # Calculate Frequency Response if RIR is available
+    if pra_room.rir is not None and len(pra_room.rir) > 0 and len(pra_room.rir[0]) > 0:
+        chunk_size = 512
+        step_size = chunk_size // 2
+        min_freq = 20
+        max_freq = 2000
+        
+        rir = pra_room.rir[0][0]
+        rir = np.pad(rir, (step_size, len(rir) % chunk_size))
+        
+        avg_freq_response = np.zeros(chunk_size, dtype=np.complex128)
 
-    for i, start_idx in enumerate(range(0, len(rir) - chunk_size, step_size)):
-        end_idx = start_idx + chunk_size
-        chunk = rir[start_idx:end_idx]
-        chunk *= hamming(chunk_size)
-        freq_response_chunk = np.fft.fft(chunk)
-        avg_freq_response += freq_response_chunk
+        for i, start_idx in enumerate(range(0, len(rir) - chunk_size, step_size)):
+            end_idx = start_idx + chunk_size
+            chunk = rir[start_idx:end_idx]
+            chunk *= hamming(chunk_size)
+            freq_response_chunk = np.fft.fft(chunk)
+            avg_freq_response += freq_response_chunk
 
-    freq_axis = np.fft.fftfreq(len(avg_freq_response), d=1/pra_room.fs)
-    valid_freqs = np.logical_and(min_freq < freq_axis, freq_axis < max_freq)
-    freq_axis = freq_axis[valid_freqs]
-    freq_response = avg_freq_response[valid_freqs]
-    freq_response = 20 * np.log10(np.abs(freq_response))
+        freq_axis = np.fft.fftfreq(len(avg_freq_response), d=1/pra_room.fs)
+        valid_freqs = np.logical_and(min_freq < freq_axis, freq_axis < max_freq)
+        freq_axis = freq_axis[valid_freqs]
+        freq_response = avg_freq_response[valid_freqs]
+        freq_response = 20 * np.log10(np.abs(freq_response))
+        
+        print('Frequency Analysis:')
+        print('Num Frequency Bins:', len(freq_axis))
+        print('Standard Deviation:', freq_response.std())
+        print('Min:', freq_response.min())
+        print('Max:', freq_response.max())
+        print('Delta:', freq_response.max() - freq_response.min())
+    else:
+        print("Unable to perform frequency analysis: Room impulse response not available")
+        # Create default values for plotting
+        freq_axis = np.linspace(20, 2000, 100)  # Default frequency range
+        freq_response = np.zeros_like(freq_axis)  # Empty response
     
-    print('Frequency Analysis:')
-    print('Num Frequency Bins:', len(freq_axis))
-    print('Standard Deviation:', freq_response.std())
-    print('Min:', freq_response.min())
-    print('Max:', freq_response.max())
-    print('Delta:', freq_response.max() - freq_response.min())
-    
-    # Calculate additional acoustic parameters
-    edt = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, 
-                                      decay_db=10, plot=False) * 6
-    print(f"\nEarly Decay Time: {edt * 1000:.0f} ms")
-    
-    def calculate_clarity(rir, fs, t):
-        n = int(t * fs)
-        early = np.sum(rir[:n]**2)
-        late = np.sum(rir[n:]**2)
-        return 10 * np.log10(early / late) if late != 0 else float('inf')
-    
-    c50 = calculate_clarity(rir, fs, 0.05)
-    c80 = calculate_clarity(rir, fs, 0.08)
-    print(f"C50 (Speech Clarity): {c50:.1f} dB")
-    print(f"C80 (Music Clarity): {c80:.1f} dB")
+    # Calculate additional acoustic parameters if RIR is available
+    if pra_room.rir is not None and len(pra_room.rir) > 0 and len(pra_room.rir[0]) > 0:
+        # Define clarity calculation function
+        def calculate_clarity(rir, fs, t):
+            n = int(t * fs)
+            early = np.sum(rir[:n]**2)
+            late = np.sum(rir[n:]**2)
+            return 10 * np.log10(early / late) if late != 0 else float('inf')
+        
+        # Calculate Early Decay Time (EDT)
+        edt = pra.experimental.measure_rt60(pra_room.rir[0][0], fs=pra_room.fs, 
+                                        decay_db=10, plot=False) * 6
+        print(f"\nEarly Decay Time: {edt * 1000:.0f} ms")
+        
+        # Calculate clarity metrics
+        c50 = calculate_clarity(rir, fs, 0.05)
+        c80 = calculate_clarity(rir, fs, 0.08)
+        print(f"C50 (Speech Clarity): {c50:.1f} dB")
+        print(f"C80 (Music Clarity): {c80:.1f} dB")
+    else:
+        print("Unable to calculate additional acoustic parameters: Room impulse response not available")
     
     # Calculate Mean Free Path
     room_volume = pra_room.volume
@@ -650,19 +696,70 @@ def calculate_acoustics():
     avg_absorption = np.mean([wall.absorption for wall in pra_room.walls])
     room_constant = room_surface_area * avg_absorption / (1 - avg_absorption)
     critical_distance = 0.141 * np.sqrt(room_constant)
-    print(f"Critical Distance: {critical_distance:.2f} m")
-    
-    # Create frequency response plot
+    print(f"Critical Distance: {critical_distance:.2f} m")    # Create frequency response plot
     fig_freq = plt.figure('Frequency Response')
     plt.clf()
     ax = fig_freq.add_subplot(111)
-    ax.plot(freq_axis, freq_response)
+    
+    if pra_room.rir is not None and len(pra_room.rir) > 0 and len(pra_room.rir[0]) > 0:
+        ax.plot(freq_axis, freq_response)
+        ax.set_title('Frequency Response of the Room')
+    else:
+        ax.text(0.5, 0.5, "No Frequency Response data available.\nTry adjusting room parameters.", 
+               horizontalalignment='center', verticalalignment='center', fontsize=16)
+        ax.set_title('Frequency Response - No Data')
+        
     ax.set_xlabel('Frequency (Hz)')
     ax.set_ylabel('Magnitude (dB)')
-    ax.set_title('Frequency Response of the Room')
     ax.grid(True)
     
-    plt.show(block=False)
+    # Make sure both figures are finalized before showing them
+    plt.figure(fig_rir.number)
+    plt.tight_layout()
+    
+    plt.figure(fig_freq.number)
+    plt.tight_layout()
+    
+    # Show plots in separate threads to avoid affecting the main window
+    show_plot_in_thread(fig_rir)
+    show_plot_in_thread(fig_freq)
+
+def show_plot_in_thread(fig):
+    """Shows a matplotlib figure in a separate thread to avoid impacting the main window"""
+    def _show_plot():
+        # Save figure to a temporary file and open it with system default viewer
+        import os
+        import tempfile
+        
+        # Create a unique filename based on the figure's label or a random ID
+        if hasattr(fig, 'get_label') and fig.get_label():
+            filename = f"{fig.get_label().replace(' ', '_')}.png"
+        else:
+            filename = f"plot_{id(fig)}.png"
+        
+        # Check if the figure has any axes with content
+        if len(fig.axes) == 0:
+            print(f"Warning: Figure {filename} has no axes! Adding dummy content.")
+            ax = fig.add_subplot(111)
+            ax.text(0.5, 0.5, "No data available", 
+                   horizontalalignment='center', verticalalignment='center')
+        
+        # Save to temp directory
+        filepath = os.path.join(tempfile.gettempdir(), filename)
+        fig.savefig(filepath, dpi=100)
+        print(f"Saved plot to {filepath}")
+        
+        # Open with default system viewer
+        try:
+            os.startfile(filepath)  # Windows-specific
+        except AttributeError:
+            # For non-Windows systems (not relevant here but good practice)
+            import subprocess
+            subprocess.call(('xdg-open', filepath))  # Linux
+        
+    thread = threading.Thread(target=_show_plot)
+    thread.daemon = True  # Thread will close when main program exits
+    thread.start()
 
 def visualize_room_layout():
     """Create a visualization of the room layout with matplotlib"""
@@ -711,10 +808,9 @@ def visualize_room_layout():
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys())
-    
-    # Set equal aspect ratio and display
+      # Set equal aspect ratio and display
     ax.set_aspect('equal')
-    plt.show(block=False)
+    show_plot_in_thread(fig)
 
 def visualize_room_3d():
     """Create a 3D visualization of the room layout with matplotlib"""
@@ -796,11 +892,10 @@ def visualize_room_3d():
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(0, height_meters)
-    
-    # Enable grid
+      # Enable grid
     ax.grid(True)
     
-    plt.show(block=False)
+    show_plot_in_thread(fig)
 
 def draw():
     # Start with a red background
@@ -1097,7 +1192,7 @@ while running:
                     calculate_acoustics()
                 else:
                     print("Need a complete room, at least one microphone, and one source to calculate acoustics")
-            elif event.key == pygame.K_v:
+            elif event.key == pygame.K_2:
                 visualize_room_layout()            
             elif event.key == pygame.K_3:  # Press '3' for 3D view
                 visualize_room_3d()
