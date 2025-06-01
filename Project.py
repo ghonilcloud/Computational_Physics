@@ -241,7 +241,7 @@ show_intensity_lines = False
 use_rainbow_colormap = False
 
 # Available frequencies (Hz)
-AVAILABLE_FREQUENCIES = [125, 250, 500, 1000, 2000, 4000, 8000]  # Standard acoustic frequencies
+AVAILABLE_FREQUENCIES = [0, 125, 250, 500, 1000, 2000, 4000, 8000]  # Standard acoustic frequencies
 DEFAULT_FREQUENCY_INDEX = 2  # Start with 500 Hz (index 2)
 
 # Amplitude step size
@@ -1411,9 +1411,9 @@ while running:
                     sources[selected_source_index].frequency = AVAILABLE_FREQUENCIES[prev_idx]
                     print(f"Frequency: {sources[selected_source_index].frequency} Hz")
             elif event.key == pygame.K_RIGHT:
-                sources[selected_source_index].amplitude = min(5.0, sources[selected_source_index].amplitude + AMP_STEP)
+                sources[selected_source_index].amplitude = min(25.0, sources[selected_source_index].amplitude + AMP_STEP)
             elif event.key == pygame.K_LEFT:
-                sources[selected_source_index].amplitude = max(0.1, sources[selected_source_index].amplitude - AMP_STEP)
+                sources[selected_source_index].amplitude = max(0.0, sources[selected_source_index].amplitude - AMP_STEP)
             elif event.key == pygame.K_s:
                 place_sound_source()
             elif event.key == pygame.K_TAB:
