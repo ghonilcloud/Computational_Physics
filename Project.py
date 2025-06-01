@@ -294,21 +294,37 @@ rough_concrete = pra.Material('rough_concrete')
 limestone_wall = pra.Material('limestone_wall')
 glass_3mm = pra.Material('glass_3mm')
 wooden_lining = pra.Material('wooden_lining')
+ceramic_tiles = pra.Material('ceramic_tiles')
+marble = pra.Material('marble_floor')
+linoleum_on_concrete = pra.Material('linoleum_on_concrete')
 
 # Ceiling materials
-wooden_lining = pra.Material('wooden_lining')
-ceiling_plasterboard = pra.Material('ceiling_plasterboard')
 unpainted_concrete = pra.Material('unpainted_concrete')
+brickwork = pra.Material('brickwork')
+brick_wall_rough = pra.Material('brick_wall_rough')
+rough_concrete = pra.Material('rough_concrete')
+limestone_wall = pra.Material('limestone_wall')
+glass_3mm = pra.Material('glass_3mm')
+wooden_lining = pra.Material('wooden_lining')
+ceramic_tiles = pra.Material('ceramic_tiles')
+marble = pra.Material('marble_floor')
+linoleum_on_concrete = pra.Material('linoleum_on_concrete')
 ceiling_fissured_tile = pra.Material('ceiling_fissured_tile')
-ceiling_metal_panel = pra.Material('ceiling_metal_panel')
+
 
 # Floor materials
+unpainted_concrete = pra.Material('unpainted_concrete')
+brickwork = pra.Material('brickwork')
+brick_wall_rough = pra.Material('brick_wall_rough')
+rough_concrete = pra.Material('rough_concrete')
+limestone_wall = pra.Material('limestone_wall')
+glass_3mm = pra.Material('glass_3mm')
+wooden_lining = pra.Material('wooden_lining')
 ceramic_tiles = pra.Material('ceramic_tiles')
-concrete_floor = pra.Material('concrete_floor')
-marble_floor = pra.Material('marble_floor')
-carpet_hairy = pra.Material('carpet_hairy')
-carpet_thin = pra.Material('carpet_thin')
+marble = pra.Material('marble_floor')
 linoleum_on_concrete = pra.Material('linoleum_on_concrete')
+carpet_hairy = pra.Material('carpet_hairy')
+
 
 # Define material options for each surface type
 # Wall materials
@@ -320,25 +336,39 @@ wall_material_options = [
     ("Limestone Wall", limestone_wall),
     ("Glass (3mm)", glass_3mm),
     ("Wooden Lining", wooden_lining),
+    ("Ceramic Tiles", ceramic_tiles),
+    ("Marble", marble),
+    ("Linoleum on Concrete", linoleum_on_concrete)
 ]
 
 # Ceiling materials
 ceiling_material_options = [
-    ("Wooden Lining", wooden_lining),
-    ("Plasterboard Ceiling", ceiling_plasterboard),
     ("Unpainted Concrete", unpainted_concrete),
+    ("Brickwork", brickwork),
+    ("Brick Wall (Rough)", brick_wall_rough),
+    ("Rough Concrete", rough_concrete),
+    ("Limestone Wall", limestone_wall),
+    ("Glass (3mm)", glass_3mm),
+    ("Wooden Lining", wooden_lining),
+    ("Ceramic Tiles", ceramic_tiles),
     ("Fissured Acoustic Tile", ceiling_fissured_tile),
-    ("Metal Panel Ceiling", ceiling_metal_panel),
+    ("Marble", marble),
+    ("Linoleum on Concrete", linoleum_on_concrete)
 ]
 
 # Floor materials
 floor_material_options = [
-    ("Ceramic Tiles", ceramic_tiles),
-    ("Concrete Floor", concrete_floor),
-    ("Marble Floor", marble_floor),
+    ("Unpainted Concrete", unpainted_concrete),
+    ("Brickwork", brickwork),
+    ("Brick Wall (Rough)", brick_wall_rough),
+    ("Rough Concrete", rough_concrete),
+    ("Limestone Wall", limestone_wall),
+    ("Glass (3mm)", glass_3mm),
+    ("Wooden Lining", wooden_lining),
     ("Hairy Carpet", carpet_hairy),
-    ("Thin Carpet", carpet_thin),
-    ("Linoleum on Concrete", linoleum_on_concrete),
+    ("Ceramic Tiles", ceramic_tiles),
+    ("Marble", marble),
+    ("Linoleum on Concrete", linoleum_on_concrete)
 ]
 
 # Function to get material from dropdown (no frequency restrictions)
@@ -384,35 +414,6 @@ ROOM_PRESETS = [
         "microphones": [(80, 60)]
     },
     {
-        "name": "Office complex",
-        "corners": [
-            (21, 32), (21, 47), (30, 46), (20, 46), (21, 32), 
-            (54, 31), (54, 45), (41, 45), (54, 44), (68, 44), 
-            (53, 43), (53, 30), (100, 30), (99, 45), (81, 45), 
-            (99, 44), (116, 44), (99, 44), (99, 30), (136, 29), 
-            (136, 43), (126, 43), (135, 43), (136, 95), (122, 95), 
-            (136, 94), (136, 119), (97, 118), (98, 94), (109, 94), 
-            (97, 92), (97, 116), (56, 119), (56, 90), (70, 90), 
-            (55, 90), (56, 117), (96, 117), (97, 92), (82, 90), 
-            (97, 92), (96, 116), (56, 117), (55, 90), (41, 89), 
-            (55, 89), (56, 118), (16, 116), (17, 89), (30, 88), (17, 88)
-        ],
-        "sources": [
-            (85, 70, 500, 1.0),    # Central presentation source
-            (35, 30, 250, 0.7),    # Small room conversation
-            (135, 30, 1000, 0.5),  # Phone in another small room
-            (35, 110, 500, 0.6),   # Discussion in corner office
-            (135, 110, 2000, 0.4)  # Printer/equipment noise
-        ],
-        "microphones": [
-            (85, 60),  # Main meeting room
-            (35, 35),  # Small office 1
-            (135, 35), # Small office 2
-            (35, 110), # Small office 3
-            (135, 110) # Small office 4
-        ]
-    },
-    {
         "name": "Hall/auditorium",
         "corners": [(20, 20), (140, 20), (140, 100), (100, 100), (100, 80), (60, 80), (60, 100), (20, 100)],
         "sources": [(80, 50, 1000, 1.0)],
@@ -429,6 +430,27 @@ ROOM_PRESETS = [
         "corners": [(30, 30), (90, 30), (90, 75), (30, 75)],
         "sources": [(45, 45, 500, 1.0), (75, 45, 1000, 1.0)],
         "microphones": [(45, 60), (75, 60)]
+    },
+    {
+        "name": "C-shaped Room",
+        "corners": [
+            # Start at bottom left, go clockwise around the C-shape
+            (30, 100),  # Bottom left corner
+            (100, 100), # Bottom right corner
+            (100, 90),  # Bottom inner corner
+            (40, 90),   # Bottom inner left
+            (40, 40),   # Top inner left
+            (100, 40),  # Top inner right
+            (100, 30),  # Top right corner
+            (30, 30)   # Top left corner
+        ],
+        "sources": [
+            (35, 65, 1000, 0.8)  # Source near the opening
+        ],
+        "microphones": [
+            (70, 35),  # Microphone at top part of C
+            (70, 95)   # Microphone at bottom part of C
+        ]
     }
 ]
 
