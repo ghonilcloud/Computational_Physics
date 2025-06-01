@@ -375,6 +375,79 @@ height_input_text = str(DEFAULT_ROOM_HEIGHT)
 # Add after the other global variables
 current_rt60 = 0.8  # Default RT60 in seconds
 
+# Collection of room presets with name, corners, sources, and microphones
+ROOM_PRESETS = [
+    {
+        "name": "Small rectangular room",
+        "corners": [(20, 20), (100, 20), (100, 70), (20, 70)],
+        "sources": [(30, 30, 500, 1.0)],  # x, y, frequency, amplitude
+        "microphones": [(80, 60)]
+    },
+    {
+        "name": "L-shaped room",
+        "corners": [(20, 20), (100, 20), (100, 50), (60, 50), (60, 100), (20, 100)],
+        "sources": [(40, 40, 500, 1.0)],
+        "microphones": [(80, 40), (40, 80)]
+    },
+    {
+        "name": "Hall/auditorium",
+        "corners": [(20, 20), (140, 20), (140, 100), (100, 100), (100, 80), (60, 80), (60, 100), (20, 100)],
+        "sources": [(40, 50, 500, 1.0), (80, 50, 1000, 1.0), (120, 50, 2000, 1.0)],
+        "microphones": [(40, 80), (80, 80), (120, 80)]
+    },
+    {
+        "name": "Home theater",
+        "corners": [(30, 30), (100, 30), (100, 80), (30, 80)],
+        "sources": [(65, 40, 500, 1.0), (50, 70, 250, 1.0), (80, 70, 250, 1.0)],
+        "microphones": [(65, 60)]
+    },
+    {
+        "name": "Recording studio",
+        "corners": [(30, 30), (90, 30), (90, 75), (30, 75)],
+        "sources": [(45, 45, 500, 1.0), (75, 45, 1000, 1.0)],
+        "microphones": [(45, 60), (75, 60)]
+    }
+]
+
+# Track current preset index
+current_preset_index = -1  # -1 means no preset is active
+
+def load_room_preset(preset_index):
+    """Load a room preset by its index"""
+    global current_preset_index, sources, microphones, selected_source_index
+    
+    # Wrap around if index is out of range
+    preset_index = preset_index % len(ROOM_PRESETS)
+    current_preset_index = preset_index
+    preset = ROOM_PRESETS[preset_index]
+    
+    # Clear existing room and objects
+    room.clear()
+    sources.clear()
+    microphones.clear()
+    
+    # Load preset corners
+    for x, y in preset["corners"]:
+        room.add_corner(x, y)
+    
+    # Complete the room
+    room.complete_room()
+    
+    # Load sources
+    source_colors = SOURCE_COLORS
+    for i, (x, y, freq, amp) in enumerate(preset["sources"]):
+        color = source_colors[i % len(source_colors)]
+        sources.append(SoundSource(x, y, frequency=freq, amplitude=amp, color=color))
+    
+    # Load microphones
+    for x, y in preset["microphones"]:
+        microphones.append(Microphone(x, y))
+    
+    # Reset selection to first source if any
+    selected_source_index = 0 if sources else 0
+    
+    print(f"Loaded preset: {preset['name']}")
+
 def calculate_decay_rate(rt60):
     """Calculate appropriate decay rate based on RT60 value"""
     # We want amplitude to decay to 0.001 (-60dB) in rt60 seconds
@@ -1126,9 +1199,9 @@ def draw():
     for i, control in enumerate(source_controls):
         control_surface = small_font.render(control, True, INTENSITY_LINE_COLOR)
         screen.blit(control_surface, (screen_width//3, panel_y + 35 + i*18))  # Reduced vertical spacing
-      # Right section: Analysis Controls with adjusted position
+      # Right section: Analysis Controls with adjusted position    
     analysis_text = "Analysis:"
-    analysis_controls = ["C: Calculate", "2: 2D View", "3: 3D View"]
+    analysis_controls = ["C: Calculate", "2: 2D View", "3: 3D View", "P: Cycle Presets"]
     analysis_surface = small_font.render(analysis_text, True, INTENSITY_LINE_COLOR)    
     screen.blit(analysis_surface, (2*screen_width//3, panel_y + 15))  # Added padding
     for i, control in enumerate(analysis_controls):
@@ -1146,13 +1219,16 @@ def draw():
         # Show material options for the active dropdown
         active_dropdown = dropdowns[active_dropdown_index]
         status_text = active_dropdown.get_available_options_text()
-        
-        # Add frequency info if sources are active
+          # Add frequency info if sources are active
         if any(source.active for source in sources):
             active_source = sources[selected_source_index]
             status_text += f" | Frequency: {active_source.frequency} Hz"
+            
+        # Add preset name if a preset is active
+        if current_preset_index >= 0:
+            status_text += f" | Preset: {ROOM_PRESETS[current_preset_index]['name']}"
     
-    status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)    
+    status_surface = small_font.render(status_text, True, INTENSITY_LINE_COLOR)
     status_rect = status_surface.get_rect(center=(screen_width//2, status_y + 10))
     screen.blit(status_surface, status_rect)
 
@@ -1201,6 +1277,42 @@ def place_sound_source():
         )
         sources.append(new_source)
         selected_source_index = len(sources) - 1
+
+def load_room_preset(preset_index):
+    """Load a room preset by its index"""
+    global current_preset_index, sources, microphones, selected_source_index
+    
+    # Wrap around if index is out of range
+    preset_index = preset_index % len(ROOM_PRESETS)
+    current_preset_index = preset_index
+    preset = ROOM_PRESETS[preset_index]
+    
+    # Clear existing room and objects
+    room.clear()
+    sources.clear()
+    microphones.clear()
+    
+    # Load preset corners
+    for x, y in preset["corners"]:
+        room.add_corner(x, y)
+    
+    # Complete the room
+    room.complete_room()
+    
+    # Load sources
+    source_colors = SOURCE_COLORS
+    for i, (x, y, freq, amp) in enumerate(preset["sources"]):
+        color = source_colors[i % len(source_colors)]
+        sources.append(SoundSource(x, y, frequency=freq, amplitude=amp, color=color))
+    
+    # Load microphones
+    for x, y in preset["microphones"]:
+        microphones.append(Microphone(x, y))
+    
+    # Reset selection to first source if any
+    selected_source_index = 0 if sources else 0
+    
+    print(f"Loaded preset: {preset['name']}")
 
 # Main loop
 running = True
@@ -1322,7 +1434,12 @@ while running:
                 for dropdown in dropdowns:
                     dropdown.set_active(False)
                 active_dropdown_index = (active_dropdown_index + 1) % len(dropdowns)
-                dropdowns[active_dropdown_index].set_active(True)            # Number keys 1-8 for selecting material options when a dropdown is active
+                dropdowns[active_dropdown_index].set_active(True)            # Cycle through room presets with 'P'
+            elif event.key == pygame.K_p:
+                # Load the next preset (wraps around if at the end)
+                load_room_preset((current_preset_index + 1) % len(ROOM_PRESETS))
+            
+            # Number keys 1-8 for selecting material options when a dropdown is active
             elif pygame.K_1 <= event.key <= pygame.K_8:
                 option_index = event.key - pygame.K_1  # Convert key to 0-7 index
                 current_dropdown = dropdowns[active_dropdown_index]
