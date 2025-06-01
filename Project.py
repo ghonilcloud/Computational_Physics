@@ -298,37 +298,21 @@ rough_concrete = pra.Material('rough_concrete')
 limestone_wall = pra.Material('limestone_wall')
 glass_3mm = pra.Material('glass_3mm')
 wooden_lining = pra.Material('wooden_lining')
-ceramic_tiles = pra.Material('ceramic_tiles')
-marble = pra.Material('marble_floor')
-linoleum_on_concrete = pra.Material('linoleum_on_concrete')
 
 # Ceiling materials
-unpainted_concrete = pra.Material('unpainted_concrete')
-brickwork = pra.Material('brickwork')
-brick_wall_rough = pra.Material('brick_wall_rough')
-rough_concrete = pra.Material('rough_concrete')
-limestone_wall = pra.Material('limestone_wall')
-glass_3mm = pra.Material('glass_3mm')
 wooden_lining = pra.Material('wooden_lining')
-ceramic_tiles = pra.Material('ceramic_tiles')
-marble = pra.Material('marble_floor')
-linoleum_on_concrete = pra.Material('linoleum_on_concrete')
+ceiling_plasterboard = pra.Material('ceiling_plasterboard')
+unpainted_concrete = pra.Material('unpainted_concrete')
 ceiling_fissured_tile = pra.Material('ceiling_fissured_tile')
-
+ceiling_metal_panel = pra.Material('ceiling_metal_panel')
 
 # Floor materials
-unpainted_concrete = pra.Material('unpainted_concrete')
-brickwork = pra.Material('brickwork')
-brick_wall_rough = pra.Material('brick_wall_rough')
-rough_concrete = pra.Material('rough_concrete')
-limestone_wall = pra.Material('limestone_wall')
-glass_3mm = pra.Material('glass_3mm')
-wooden_lining = pra.Material('wooden_lining')
 ceramic_tiles = pra.Material('ceramic_tiles')
-marble = pra.Material('marble_floor')
-linoleum_on_concrete = pra.Material('linoleum_on_concrete')
+concrete_floor = pra.Material('concrete_floor')
+marble_floor = pra.Material('marble_floor')
 carpet_hairy = pra.Material('carpet_hairy')
-
+carpet_thin = pra.Material('carpet_thin')
+linoleum_on_concrete = pra.Material('linoleum_on_concrete')
 
 # Define material options for each surface type
 # Wall materials
@@ -340,39 +324,25 @@ wall_material_options = [
     ("Limestone Wall", limestone_wall),
     ("Glass (3mm)", glass_3mm),
     ("Wooden Lining", wooden_lining),
-    ("Ceramic Tiles", ceramic_tiles),
-    ("Marble", marble),
-    ("Linoleum on Concrete", linoleum_on_concrete)
 ]
 
 # Ceiling materials
 ceiling_material_options = [
-    ("Unpainted Concrete", unpainted_concrete),
-    ("Brickwork", brickwork),
-    ("Brick Wall (Rough)", brick_wall_rough),
-    ("Rough Concrete", rough_concrete),
-    ("Limestone Wall", limestone_wall),
-    ("Glass (3mm)", glass_3mm),
     ("Wooden Lining", wooden_lining),
-    ("Ceramic Tiles", ceramic_tiles),
+    ("Plasterboard Ceiling", ceiling_plasterboard),
+    ("Unpainted Concrete", unpainted_concrete),
     ("Fissured Acoustic Tile", ceiling_fissured_tile),
-    ("Marble", marble),
-    ("Linoleum on Concrete", linoleum_on_concrete)
+    ("Metal Panel Ceiling", ceiling_metal_panel),
 ]
 
 # Floor materials
 floor_material_options = [
-    ("Unpainted Concrete", unpainted_concrete),
-    ("Brickwork", brickwork),
-    ("Brick Wall (Rough)", brick_wall_rough),
-    ("Rough Concrete", rough_concrete),
-    ("Limestone Wall", limestone_wall),
-    ("Glass (3mm)", glass_3mm),
-    ("Wooden Lining", wooden_lining),
-    ("Hairy Carpet", carpet_hairy),
     ("Ceramic Tiles", ceramic_tiles),
-    ("Marble", marble),
-    ("Linoleum on Concrete", linoleum_on_concrete)
+    ("Concrete Floor", concrete_floor),
+    ("Marble Floor", marble_floor),
+    ("Hairy Carpet", carpet_hairy),
+    ("Thin Carpet", carpet_thin),
+    ("Linoleum on Concrete", linoleum_on_concrete),
 ]
 
 # Function to get material from dropdown (no frequency restrictions)
