@@ -163,6 +163,10 @@ class DropdownMenu:
 # Left/Right Arrow - Adjust amplitude
 # S - Add sound source
 # Tab - Cycle through sound sources
+# P - Cycle through presets
+# 3 - 3D visuals
+# 2 - 2D visuals
+# C - Calculate room acoustics
 
 # RETURN - Complete room drawing
 # ESC - Clear room drawing
