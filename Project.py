@@ -384,16 +384,39 @@ ROOM_PRESETS = [
         "microphones": [(80, 60)]
     },
     {
-        "name": "L-shaped room",
-        "corners": [(20, 20), (100, 20), (100, 50), (60, 50), (60, 100), (20, 100)],
-        "sources": [(40, 40, 500, 1.0)],
-        "microphones": [(80, 40), (40, 80)]
+        "name": "Office complex",
+        "corners": [
+            (21, 32), (21, 47), (30, 46), (20, 46), (21, 32), 
+            (54, 31), (54, 45), (41, 45), (54, 44), (68, 44), 
+            (53, 43), (53, 30), (100, 30), (99, 45), (81, 45), 
+            (99, 44), (116, 44), (99, 44), (99, 30), (136, 29), 
+            (136, 43), (126, 43), (135, 43), (136, 95), (122, 95), 
+            (136, 94), (136, 119), (97, 118), (98, 94), (109, 94), 
+            (97, 92), (97, 116), (56, 119), (56, 90), (70, 90), 
+            (55, 90), (56, 117), (96, 117), (97, 92), (82, 90), 
+            (97, 92), (96, 116), (56, 117), (55, 90), (41, 89), 
+            (55, 89), (56, 118), (16, 116), (17, 89), (30, 88), (17, 88)
+        ],
+        "sources": [
+            (85, 70, 500, 1.0),    # Central presentation source
+            (35, 30, 250, 0.7),    # Small room conversation
+            (135, 30, 1000, 0.5),  # Phone in another small room
+            (35, 110, 500, 0.6),   # Discussion in corner office
+            (135, 110, 2000, 0.4)  # Printer/equipment noise
+        ],
+        "microphones": [
+            (85, 60),  # Main meeting room
+            (35, 35),  # Small office 1
+            (135, 35), # Small office 2
+            (35, 110), # Small office 3
+            (135, 110) # Small office 4
+        ]
     },
     {
         "name": "Hall/auditorium",
         "corners": [(20, 20), (140, 20), (140, 100), (100, 100), (100, 80), (60, 80), (60, 100), (20, 100)],
-        "sources": [(40, 50, 500, 1.0), (80, 50, 1000, 1.0), (120, 50, 2000, 1.0)],
-        "microphones": [(40, 80), (80, 80), (120, 80)]
+        "sources": [(80, 50, 1000, 1.0)],
+        "microphones": [(40, 80), (120, 80)]
     },
     {
         "name": "Home theater",
@@ -1081,7 +1104,7 @@ def draw():
     # Higher frequencies (>500Hz) have shorter wavelengths that may be less visible at the current grid resolution
     # Scale factor increases as frequency increases, with 500Hz as the baseline (scale = 1.0)
     # The scaling is capped at 10x to prevent excessive amplification
-    vis_scale = min(10, max(1, current_freq / 500))
+    vis_scale = 8
     
     # Draw walls and wave visualization
     for x in range(nx):
